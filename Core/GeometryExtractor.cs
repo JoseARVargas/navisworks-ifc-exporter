@@ -70,7 +70,7 @@ namespace NavisworksIfcExporter.Core
         // Bounding-box fallback (12 triangles, one box per element)
         // -----------------------------------------------------------------------
 
-        private static GeometryData? ExtractBoundingBox(ModelItem item)
+        public static GeometryData? ExtractBoundingBox(ModelItem item)
         {
             var bb = item.Geometry?.BoundingBox;
             if (bb == null || bb.IsEmpty)

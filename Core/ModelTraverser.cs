@@ -15,20 +15,22 @@ namespace NavisworksIfcExporter.Core
 
         public IEnumerable<ElementData> Traverse(IEnumerable<ModelItem> items, bool includeHidden, bool exportGeometry)
         {
-            var results = new List<ElementData>();
-            bool comErrorLogged = false;
-            int withProps = 0;
+            var results      = new List<ElementData>();
+            bool comFailed   = false;
+            bool diagDone    = false;
+            int withProps    = 0;
             int withoutProps = 0;
 
             foreach (var item in items)
-                TraverseItem(item, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
+                TraverseItem(item, results, includeHidden, exportGeometry,
+                             ref comFailed, ref diagDone, ref withProps, ref withoutProps);
 
             Report($"  {results.Count} elementos exportados ({withProps} com propriedades, {withoutProps} sem).");
             return results;
         }
 
         private void TraverseItem(ModelItem item, List<ElementData> results, bool includeHidden, bool exportGeometry,
-            ref bool comErrorLogged, ref int withProps, ref int withoutProps)
+            ref bool comFailed, ref bool diagDone, ref int withProps, ref int withoutProps)
         {
             if (!includeHidden && item.IsHidden)
                 return;
@@ -37,12 +39,27 @@ namespace NavisworksIfcExporter.Core
             {
                 var props = CollectProperties(item);
 
+                // Diagnóstico: loga categorias e contagem do primeiro elemento exportado
+                if (!diagDone)
+                {
+                    diagDone = true;
+                    var cats = string.Join(", ", props.Keys.Take(10));
+                    var total = props.Values.Sum(p => p.Count);
+                    Report($"  [diag] 1º elemento: \"{item.DisplayName}\" | {props.Count} psets ({total} props) | {cats}");
+
+                    // Também mostra categorias brutas do Navisworks antes da extração
+                    var rawCats = string.Join(", ", item.PropertyCategories
+                        .Select(c => $"{c.Name}({c.DisplayName})")
+                        .Take(8));
+                    Report($"  [diag] categorias brutas: {rawCats}");
+                }
+
                 var element = new ElementData
                 {
-                    Id       = item.InstanceGuid.ToString(),
-                    Name     = item.DisplayName ?? "(sem nome)",
-                    Category = GetCategory(item, props),
-                    IfcType  = IfcTypeMapper.Map(props, item),
+                    Id           = item.InstanceGuid.ToString(),
+                    Name         = item.DisplayName ?? "(sem nome)",
+                    Category     = GetCategory(item, props),
+                    IfcType      = IfcTypeMapper.Map(props, item),
                     PropertySets = props,
                 };
 
@@ -50,12 +67,19 @@ namespace NavisworksIfcExporter.Core
 
                 if (exportGeometry && item.HasGeometry)
                 {
-                    element.Geometry = _geometryExtractor.Extract(item);
-
-                    if (!comErrorLogged && _geometryExtractor.LastComError.Length > 0)
+                    // Após primeira falha COM confirmada, vai direto para bounding box
+                    if (!comFailed)
                     {
-                        Report($"  Aviso: tessellação COM falhou ({_geometryExtractor.LastComError}). Usando bounding box.");
-                        comErrorLogged = true;
+                        element.Geometry = _geometryExtractor.Extract(item);
+                        if (_geometryExtractor.LastComError.Length > 0)
+                        {
+                            Report($"  Aviso: tessellação COM indisponível ({_geometryExtractor.LastComError}). Restante usará bounding box.");
+                            comFailed = true;
+                        }
+                    }
+                    else
+                    {
+                        element.Geometry = GeometryExtractor.ExtractBoundingBox(item);
                     }
                 }
 
@@ -63,40 +87,30 @@ namespace NavisworksIfcExporter.Core
             }
 
             foreach (var child in item.Children)
-                TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
+                TraverseItem(child, results, includeHidden, exportGeometry,
+                             ref comFailed, ref diagDone, ref withProps, ref withoutProps);
         }
 
-        // Categorias padrão do Navisworks presentes em qualquer nó de geometria.
-        // Quando o item só tem estas, precisamos subir na hierarquia para encontrar
-        // as propriedades da aplicação de origem (Revit, AutoCAD, Civil 3D, etc.).
-        private static readonly HashSet<string> _basicNavisCategories = new HashSet<string>
-        {
-            "Item", "Material"
-        };
-
-        // Coleta propriedades do item e, se necessário, de seus ancestrais.
-        // Funciona para qualquer formato suportado pelo Navisworks.
+        // Sempre mescla propriedades do item com as de seus ancestrais (máx. 8 níveis).
+        // Os ancestrais têm menor prioridade — as props do próprio item sempre prevalecem.
+        // Funciona para qualquer formato: Revit, AutoCAD, DGN, IFC, NWC, etc.
         private Dictionary<string, Dictionary<string, string>> CollectProperties(ModelItem item)
         {
-            var ownProps = _propertyExtractor.Extract(item);
-
-            // Item já tem categorias da aplicação de origem → usa direto.
-            if (ownProps.Keys.Any(k => !_basicNavisCategories.Contains(k)))
-                return ownProps;
-
-            // Só tem "Item" e/ou "Material": sobe pelos ancestrais para capturar
-            // propriedades de tipo, família, layer, etc. (máx. 8 níveis).
-            var result = new Dictionary<string, Dictionary<string, string>>(ownProps);
+            var result = new Dictionary<string, Dictionary<string, string>>();
             int depth = 0;
 
+            // Ancestrais em ordem: imediato → raiz (imediato tem prioridade sobre raiz)
             foreach (var ancestor in item.Ancestors)
             {
                 if (++depth > 8) break;
-
                 foreach (var kvp in _propertyExtractor.Extract(ancestor))
                     if (!result.ContainsKey(kvp.Key))
                         result[kvp.Key] = kvp.Value;
             }
+
+            // Props do item sobrepõem ancestrais
+            foreach (var kvp in _propertyExtractor.Extract(item))
+                result[kvp.Key] = kvp.Value;
 
             return result;
         }
@@ -106,10 +120,8 @@ namespace NavisworksIfcExporter.Core
 
         private void Report(string message) => ProgressChanged?.Invoke(this, message);
 
-        // Determina a categoria legível do elemento a partir de diversas fontes.
         private static string GetCategory(ModelItem item, Dictionary<string, Dictionary<string, string>> props)
         {
-            // 1. "Item" → "Category" (presente em qualquer formato no Navisworks)
             if (props.TryGetValue("Item", out var itemPset))
             {
                 if (itemPset.TryGetValue("Category", out var cat) && !string.IsNullOrWhiteSpace(cat))
@@ -118,7 +130,6 @@ namespace NavisworksIfcExporter.Core
                     return layer;
             }
 
-            // 2. ClassDisplayName / ClassName do Navisworks (ex.: "Wall", "LINE", "IfcWall")
             var className = item.ClassDisplayName ?? item.ClassName;
             if (!string.IsNullOrWhiteSpace(className))
                 return className;
