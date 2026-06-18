@@ -82,7 +82,8 @@ namespace NavisworksIfcExporter.Core
             }
         }
 
+        // IFC allows spaces in names; only strip characters that break the STEP parser.
         private static string SanitizeName(string name) =>
-            name.Replace(".", "_").Replace(" ", "_").Trim();
+            name.Replace("'", "").Replace("\\", "").Replace("\r", "").Replace("\n", "").Trim();
     }
 }

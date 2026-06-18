@@ -40,6 +40,7 @@ namespace NavisworksIfcExporter.Core
 
             Report("Percorrendo modelo...");
             var traverser = new ModelTraverser();
+            traverser.ProgressChanged += (_, msg) => Report(msg);
             var elements  = traverser.Traverse(sourceItems, options.IncludeHidden, options.ExportGeometry);
 
             Report("Escrevendo arquivo IFC 4...");

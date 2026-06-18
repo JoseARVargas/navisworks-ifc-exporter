@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Navisworks.Api;
@@ -10,15 +11,21 @@ namespace NavisworksIfcExporter.Core
         private readonly PropertyExtractor _propertyExtractor = new();
         private readonly GeometryExtractor _geometryExtractor = new();
 
+        public event EventHandler<string>? ProgressChanged;
+
         public IEnumerable<ElementData> Traverse(IEnumerable<ModelItem> items, bool includeHidden, bool exportGeometry)
         {
             var results = new List<ElementData>();
+            bool comErrorLogged = false;
+
             foreach (var item in items)
-                TraverseItem(item, results, includeHidden, exportGeometry);
+                TraverseItem(item, results, includeHidden, exportGeometry, ref comErrorLogged);
+
+            Report($"  {results.Count} elementos exportados.");
             return results;
         }
 
-        private void TraverseItem(ModelItem item, List<ElementData> results, bool includeHidden, bool exportGeometry)
+        private void TraverseItem(ModelItem item, List<ElementData> results, bool includeHidden, bool exportGeometry, ref bool comErrorLogged)
         {
             if (!includeHidden && item.IsHidden)
                 return;
@@ -36,19 +43,29 @@ namespace NavisworksIfcExporter.Core
                 };
 
                 if (exportGeometry && item.HasGeometry)
+                {
                     element.Geometry = _geometryExtractor.Extract(item);
+
+                    if (!comErrorLogged && _geometryExtractor.LastComError.Length > 0)
+                    {
+                        Report($"  Geometria tessellada indisponível ({_geometryExtractor.LastComError}). Usando bounding box.");
+                        comErrorLogged = true;
+                    }
+                }
 
                 results.Add(element);
             }
 
             foreach (var child in item.Children)
-                TraverseItem(child, results, includeHidden, exportGeometry);
+                TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged);
         }
 
         private static bool IsLeafWithProperties(ModelItem item)
         {
             return !item.Children.Any() && item.PropertyCategories.Any();
         }
+
+        private void Report(string message) => ProgressChanged?.Invoke(this, message);
 
         private static string GetCategory(ModelItem item)
         {

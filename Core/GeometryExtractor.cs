@@ -8,31 +8,42 @@ using NavisworksIfcExporter.Models;
 
 namespace NavisworksIfcExporter.Core
 {
-    /// <summary>
-    /// Extrai geometria tessellada de um ModelItem via fragments da COM API do Navisworks 2025+.
-    /// Cada fragmento representa uma malha de triângulos em coordenadas locais.
-    /// </summary>
     public class GeometryExtractor
     {
+        // Set when COM tessellation fails — lets the caller log the reason.
+        public string LastComError { get; private set; } = string.Empty;
+
         public GeometryData? Extract(ModelItem item)
         {
             if (!item.HasGeometry)
                 return null;
 
-            var callback = new TriangleCollector();
+            // Try full tessellation first; fall back to bounding box.
+            var tessellated = TryComTessellation(item);
+            if (tessellated != null)
+                return tessellated;
 
+            return ExtractBoundingBox(item);
+        }
+
+        // -----------------------------------------------------------------------
+        // COM tessellation (exact geometry)
+        // -----------------------------------------------------------------------
+
+        private GeometryData? TryComTessellation(ModelItem item)
+        {
+            var callback = new TriangleCollector();
             try
             {
                 var comPath = (InwOaPath3)ComApiBridge.ToInwOaPath(item);
-                var frags = (IEnumerable)comPath.Fragments();
+                var frags   = (IEnumerable)comPath.Fragments();
 
                 foreach (InwOaFragment3 frag in frags)
-                {
                     frag.GenerateSimplePrimitives(nwEVertexProperty.eNONE, callback);
-                }
             }
-            catch
+            catch (Exception ex)
             {
+                LastComError = ex.GetType().Name + ": " + ex.Message;
                 return null;
             }
 
@@ -45,11 +56,50 @@ namespace NavisworksIfcExporter.Core
                 Triangles = callback.Triangles,
             };
         }
+
+        // -----------------------------------------------------------------------
+        // Bounding-box fallback (12 triangles, one box per element)
+        // -----------------------------------------------------------------------
+
+        private static GeometryData? ExtractBoundingBox(ModelItem item)
+        {
+            var bb = item.Geometry?.BoundingBox;
+            if (bb == null || bb.IsEmpty)
+                return null;
+
+            var mn = bb.Min;
+            var mx = bb.Max;
+
+            var verts = new List<double[]>
+            {
+                new[] { mn.X, mn.Y, mn.Z }, // 0
+                new[] { mx.X, mn.Y, mn.Z }, // 1
+                new[] { mx.X, mx.Y, mn.Z }, // 2
+                new[] { mn.X, mx.Y, mn.Z }, // 3
+                new[] { mn.X, mn.Y, mx.Z }, // 4
+                new[] { mx.X, mn.Y, mx.Z }, // 5
+                new[] { mx.X, mx.Y, mx.Z }, // 6
+                new[] { mn.X, mx.Y, mx.Z }, // 7
+            };
+
+            var tris = new List<int[]>
+            {
+                new[] { 0, 2, 1 }, new[] { 0, 3, 2 }, // bottom
+                new[] { 4, 5, 6 }, new[] { 4, 6, 7 }, // top
+                new[] { 0, 1, 5 }, new[] { 0, 5, 4 }, // front
+                new[] { 3, 6, 2 }, new[] { 3, 7, 6 }, // back
+                new[] { 0, 4, 7 }, new[] { 0, 7, 3 }, // left
+                new[] { 1, 2, 6 }, new[] { 1, 6, 5 }, // right
+            };
+
+            return new GeometryData { Vertices = verts, Triangles = tris };
+        }
     }
 
     // -----------------------------------------------------------------------
-    // Callback COM que recebe os triângulos primitivos do Navisworks
+    // COM callback — collects triangles from GenerateSimplePrimitives
     // -----------------------------------------------------------------------
+
     internal class TriangleCollector : InwSimplePrimitivesCB
     {
         private readonly Dictionary<string, int> _vertexIndex = new Dictionary<string, int>();
