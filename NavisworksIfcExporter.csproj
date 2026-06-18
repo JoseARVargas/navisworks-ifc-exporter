@@ -18,6 +18,16 @@
     <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
   </ItemGroup>
 
+  <!-- Copia o DLL para a pasta de plugins após cada build -->
+  <Target Name="DeployToNavisworks" AfterTargets="Build">
+    <PropertyGroup>
+      <PluginDir>$(APPDATA)\Autodesk\Navisworks 2026\Plugins\NavisworksIfcExporter</PluginDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="true" />
+    <Message Text="Plugin copiado para $(PluginDir)" Importance="high" />
+  </Target>
+
   <!-- Referências ao Navisworks (não copiadas para output) -->
   <ItemGroup>
     <Reference Include="Autodesk.Navisworks.Api">
