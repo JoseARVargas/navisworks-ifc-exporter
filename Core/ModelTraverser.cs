@@ -33,17 +33,16 @@ namespace NavisworksIfcExporter.Core
             if (!includeHidden && item.IsHidden)
                 return;
 
-            // Só exporta itens folha que possuem geometria ou são instâncias
             if (item.HasGeometry || IsLeafWithProperties(item))
             {
                 var props = CollectProperties(item);
 
                 var element = new ElementData
                 {
-                    Id = item.InstanceGuid.ToString(),
-                    Name = item.DisplayName ?? "(sem nome)",
-                    Category = GetCategory(item),
-                    IfcType = IfcTypeMapper.MapFromProperties(props, item),
+                    Id       = item.InstanceGuid.ToString(),
+                    Name     = item.DisplayName ?? "(sem nome)",
+                    Category = GetCategory(item, props),
+                    IfcType  = IfcTypeMapper.Map(props, item),
                     PropertySets = props,
                 };
 
@@ -67,40 +66,57 @@ namespace NavisworksIfcExporter.Core
                 TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
         }
 
-        // Coleta propriedades do item e de seus ancestrais (para capturar dados do tipo/família Revit)
+        // Coleta propriedades do item. Se o item não tem dados além do "Item" básico
+        // do Navisworks, sobe pelos ancestrais para capturar propriedades de tipo/família.
+        // Isso funciona para qualquer formato (Revit, AutoCAD, DGN, IFC, etc.).
         private Dictionary<string, Dictionary<string, string>> CollectProperties(ModelItem item)
         {
-            var result = new Dictionary<string, Dictionary<string, string>>();
+            var ownProps = _propertyExtractor.Extract(item);
 
-            // Ancestors primeiro (menor prioridade: root → parent)
+            // Item já tem propriedades além do "Item" padrão do Navisworks → suficiente.
+            if (ownProps.Keys.Any(k => k != "Item"))
+                return ownProps;
+
+            // Só tem "Item" ou nada: busca em ancestrais (máx. 8 níveis para não
+            // incluir dados de projeto/site em modelos com hierarquia profunda).
+            var result = new Dictionary<string, Dictionary<string, string>>(ownProps);
+            int depth = 0;
+
             foreach (var ancestor in item.Ancestors)
             {
+                if (++depth > 8) break;
+
                 foreach (var kvp in _propertyExtractor.Extract(ancestor))
                     if (!result.ContainsKey(kvp.Key))
                         result[kvp.Key] = kvp.Value;
             }
 
-            // Propriedades do próprio item sobrepõem ancestrais
-            foreach (var kvp in _propertyExtractor.Extract(item))
-                result[kvp.Key] = kvp.Value;
-
             return result;
         }
 
-        private static bool IsLeafWithProperties(ModelItem item)
-        {
-            return !item.Children.Any() && item.PropertyCategories.Any();
-        }
+        private static bool IsLeafWithProperties(ModelItem item) =>
+            !item.Children.Any() && item.PropertyCategories.Any();
 
         private void Report(string message) => ProgressChanged?.Invoke(this, message);
 
-        private static string GetCategory(ModelItem item)
+        // Determina a categoria legível do elemento a partir de diversas fontes.
+        private static string GetCategory(ModelItem item, Dictionary<string, Dictionary<string, string>> props)
         {
-            var cat = item.PropertyCategories.FindCategoryByName("Item");
-            var val = cat?.Properties
-                         .FirstOrDefault(p => p.DisplayName == "Category")?
-                         .Value;
-            return val != null ? PropertyExtractor.SafeString(val) : "Unknown";
+            // 1. "Item" → "Category" (presente em qualquer formato no Navisworks)
+            if (props.TryGetValue("Item", out var itemPset))
+            {
+                if (itemPset.TryGetValue("Category", out var cat) && !string.IsNullOrWhiteSpace(cat))
+                    return cat;
+                if (itemPset.TryGetValue("Layer", out var layer) && !string.IsNullOrWhiteSpace(layer))
+                    return layer;
+            }
+
+            // 2. ClassDisplayName / ClassName do Navisworks (ex.: "Wall", "LINE", "IfcWall")
+            var className = item.ClassDisplayName ?? item.ClassName;
+            if (!string.IsNullOrWhiteSpace(className))
+                return className;
+
+            return "Unknown";
         }
     }
 }
