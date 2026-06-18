@@ -66,19 +66,26 @@ namespace NavisworksIfcExporter.Core
                 TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
         }
 
-        // Coleta propriedades do item. Se o item não tem dados além do "Item" básico
-        // do Navisworks, sobe pelos ancestrais para capturar propriedades de tipo/família.
-        // Isso funciona para qualquer formato (Revit, AutoCAD, DGN, IFC, etc.).
+        // Categorias padrão do Navisworks presentes em qualquer nó de geometria.
+        // Quando o item só tem estas, precisamos subir na hierarquia para encontrar
+        // as propriedades da aplicação de origem (Revit, AutoCAD, Civil 3D, etc.).
+        private static readonly HashSet<string> _basicNavisCategories = new HashSet<string>
+        {
+            "Item", "Material"
+        };
+
+        // Coleta propriedades do item e, se necessário, de seus ancestrais.
+        // Funciona para qualquer formato suportado pelo Navisworks.
         private Dictionary<string, Dictionary<string, string>> CollectProperties(ModelItem item)
         {
             var ownProps = _propertyExtractor.Extract(item);
 
-            // Item já tem propriedades além do "Item" padrão do Navisworks → suficiente.
-            if (ownProps.Keys.Any(k => k != "Item"))
+            // Item já tem categorias da aplicação de origem → usa direto.
+            if (ownProps.Keys.Any(k => !_basicNavisCategories.Contains(k)))
                 return ownProps;
 
-            // Só tem "Item" ou nada: busca em ancestrais (máx. 8 níveis para não
-            // incluir dados de projeto/site em modelos com hierarquia profunda).
+            // Só tem "Item" e/ou "Material": sobe pelos ancestrais para capturar
+            // propriedades de tipo, família, layer, etc. (máx. 8 níveis).
             var result = new Dictionary<string, Dictionary<string, string>>(ownProps);
             int depth = 0;
 

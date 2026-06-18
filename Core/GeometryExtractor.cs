@@ -33,13 +33,17 @@ namespace NavisworksIfcExporter.Core
         private GeometryData? TryComTessellation(ModelItem item)
         {
             var callback = new TriangleCollector();
+            int fragCount = 0;
             try
             {
                 var comPath = (InwOaPath3)ComApiBridge.ToInwOaPath(item);
                 var frags   = (IEnumerable)comPath.Fragments();
 
                 foreach (InwOaFragment3 frag in frags)
+                {
+                    fragCount++;
                     frag.GenerateSimplePrimitives(nwEVertexProperty.eNONE, callback);
+                }
             }
             catch (Exception ex)
             {
@@ -48,7 +52,12 @@ namespace NavisworksIfcExporter.Core
             }
 
             if (callback.Vertices.Count == 0)
+            {
+                // Ajuda a diagnosticar: 0 fragmentos COM vs fragmentos COM com 0 triângulos
+                int managedFrags = item.Geometry?.FragmentCount ?? 0;
+                LastComError = $"0 triângulos (frags COM={fragCount}, frags managed={managedFrags})";
                 return null;
+            }
 
             return new GeometryData
             {
