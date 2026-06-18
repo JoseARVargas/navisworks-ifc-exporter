@@ -53,10 +53,10 @@ namespace NavisworksIfcExporter.Core
         private static string GetCategory(ModelItem item)
         {
             var cat = item.PropertyCategories.FindCategoryByName("Item");
-            return cat?.Properties
-                      .FirstOrDefault(p => p.DisplayName == "Category")?
-                      .Value?.ToDisplayString()
-                   ?? "Unknown";
+            var val = cat?.Properties
+                         .FirstOrDefault(p => p.DisplayName == "Category")?
+                         .Value;
+            return val != null ? PropertyExtractor.SafeString(val) : "Unknown";
         }
     }
 }

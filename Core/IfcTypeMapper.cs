@@ -11,11 +11,12 @@ namespace NavisworksIfcExporter.Core
     {
         public static string Map(ModelItem item)
         {
-            var category = item.PropertyCategories
-                              .FindCategoryByName("Item")?
-                              .Properties
-                              .FirstOrDefault(p => p.DisplayName == "Category")?
-                              .Value?.ToDisplayString() ?? string.Empty;
+            var val = item.PropertyCategories
+                         .FindCategoryByName("Item")?
+                         .Properties
+                         .FirstOrDefault(p => p.DisplayName == "Category")?
+                         .Value;
+            var category = val != null ? PropertyExtractor.SafeString(val) : string.Empty;
 
             return category.ToLowerInvariant() switch
             {
