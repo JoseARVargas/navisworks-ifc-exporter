@@ -17,15 +17,18 @@ namespace NavisworksIfcExporter.Core
         {
             var results = new List<ElementData>();
             bool comErrorLogged = false;
+            int withProps = 0;
+            int withoutProps = 0;
 
             foreach (var item in items)
-                TraverseItem(item, results, includeHidden, exportGeometry, ref comErrorLogged);
+                TraverseItem(item, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
 
-            Report($"  {results.Count} elementos exportados.");
+            Report($"  {results.Count} elementos exportados ({withProps} com propriedades, {withoutProps} sem).");
             return results;
         }
 
-        private void TraverseItem(ModelItem item, List<ElementData> results, bool includeHidden, bool exportGeometry, ref bool comErrorLogged)
+        private void TraverseItem(ModelItem item, List<ElementData> results, bool includeHidden, bool exportGeometry,
+            ref bool comErrorLogged, ref int withProps, ref int withoutProps)
         {
             if (!includeHidden && item.IsHidden)
                 return;
@@ -33,14 +36,18 @@ namespace NavisworksIfcExporter.Core
             // Só exporta itens folha que possuem geometria ou são instâncias
             if (item.HasGeometry || IsLeafWithProperties(item))
             {
+                var props = CollectProperties(item);
+
                 var element = new ElementData
                 {
                     Id = item.InstanceGuid.ToString(),
                     Name = item.DisplayName ?? "(sem nome)",
                     Category = GetCategory(item),
-                    IfcType = IfcTypeMapper.Map(item),
-                    PropertySets = _propertyExtractor.Extract(item),
+                    IfcType = IfcTypeMapper.MapFromProperties(props, item),
+                    PropertySets = props,
                 };
+
+                if (props.Count > 0) withProps++; else withoutProps++;
 
                 if (exportGeometry && item.HasGeometry)
                 {
@@ -48,7 +55,7 @@ namespace NavisworksIfcExporter.Core
 
                     if (!comErrorLogged && _geometryExtractor.LastComError.Length > 0)
                     {
-                        Report($"  Geometria tessellada indisponível ({_geometryExtractor.LastComError}). Usando bounding box.");
+                        Report($"  Aviso: tessellação COM falhou ({_geometryExtractor.LastComError}). Usando bounding box.");
                         comErrorLogged = true;
                     }
                 }
@@ -57,7 +64,27 @@ namespace NavisworksIfcExporter.Core
             }
 
             foreach (var child in item.Children)
-                TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged);
+                TraverseItem(child, results, includeHidden, exportGeometry, ref comErrorLogged, ref withProps, ref withoutProps);
+        }
+
+        // Coleta propriedades do item e de seus ancestrais (para capturar dados do tipo/família Revit)
+        private Dictionary<string, Dictionary<string, string>> CollectProperties(ModelItem item)
+        {
+            var result = new Dictionary<string, Dictionary<string, string>>();
+
+            // Ancestors primeiro (menor prioridade: root → parent)
+            foreach (var ancestor in item.Ancestors)
+            {
+                foreach (var kvp in _propertyExtractor.Extract(ancestor))
+                    if (!result.ContainsKey(kvp.Key))
+                        result[kvp.Key] = kvp.Value;
+            }
+
+            // Propriedades do próprio item sobrepõem ancestrais
+            foreach (var kvp in _propertyExtractor.Extract(item))
+                result[kvp.Key] = kvp.Value;
+
+            return result;
         }
 
         private static bool IsLeafWithProperties(ModelItem item)
