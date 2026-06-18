@@ -5,8 +5,8 @@ namespace NavisworksIfcExporter
 {
     [Plugin("ExportIfc", "PHD",
         DisplayName = "Exportar IFC 4",
-        ToolTip     = "Abre o diálogo de exportação IFC 4")]
-    [AddInPlugin(AddInLocation.Export)]
+        ToolTip     = "Exporta o modelo para IFC 4 com propriedades e geometria")]
+    [AddInPlugin(AddInLocation.AddIn)]
     public class ExportIfcPlugin : AddInPlugin
     {
         public override int Execute(params string[] parameters)
