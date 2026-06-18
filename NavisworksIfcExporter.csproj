@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>NavisworksIfcExporter</AssemblyName>
+    <RootNamespace>NavisworksIfcExporter</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>9.0</LangVersion>
+    <!-- Altere para o caminho da sua instalação do Navisworks -->
+    <NavisworksDir Condition="'$(NavisworksDir)' == ''">C:\Program Files\Autodesk\Navisworks Manage 2026</NavisworksDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xBIM para escrita do IFC 4 -->
+    <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
+  </ItemGroup>
+
+  <!-- Referências ao Navisworks (não copiadas para output) -->
+  <ItemGroup>
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Gui">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Gui.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Interop.ComApi">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Interop.Interop">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.Interop.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

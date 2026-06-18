@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+
+# Autodesk / Navisworks local DLLs (not redistributable)
+*.dll
+*.pdb
+*.xml
+
+# OS
+Thumbs.db
+.DS_Store
