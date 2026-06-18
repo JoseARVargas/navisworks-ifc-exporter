@@ -1,15 +1,16 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Autodesk.Navisworks.Api;
-using Autodesk.Navisworks.Api.Interop;
+using Autodesk.Navisworks.Api.ComApi;
 using Autodesk.Navisworks.Api.Interop.ComApi;
 using NavisworksIfcExporter.Models;
 
 namespace NavisworksIfcExporter.Core
 {
     /// <summary>
-    /// Extrai geometria tessellada de um ModelItem usando a COM API do Navisworks.
-    /// Os vértices retornados estão em coordenadas de mundo (world space).
+    /// Extrai geometria tessellada de um ModelItem via fragments da COM API do Navisworks 2025+.
+    /// Cada fragmento representa uma malha de triângulos em coordenadas locais.
     /// </summary>
     public class GeometryExtractor
     {
@@ -22,13 +23,16 @@ namespace NavisworksIfcExporter.Core
 
             try
             {
-                // Converte o ModelItem gerenciado para o path COM
-                var comPath = ComBridge.ToInwOaPath(item.CreatePath());
-                comPath.GenerateSimplePrimitives(nwEVertexFormat.eVFCoords, callback);
+                var comPath = (InwOaPath3)ComApiBridge.ToInwOaPath(item);
+                var frags = (IEnumerable)comPath.Fragments();
+
+                foreach (InwOaFragment3 frag in frags)
+                {
+                    frag.GenerateSimplePrimitives(nwEVertexProperty.eNONE, callback);
+                }
             }
-            catch (Exception)
+            catch
             {
-                // Elemento sem geometria acessível via COM (ex: apenas bounding box)
                 return null;
             }
 
@@ -43,16 +47,15 @@ namespace NavisworksIfcExporter.Core
         }
     }
 
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     // Callback COM que recebe os triângulos primitivos do Navisworks
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     internal class TriangleCollector : InwSimplePrimitivesCB
     {
-        // Mapa vértice→índice para deduplicação
-        private readonly Dictionary<string, int> _vertexIndex = new();
+        private readonly Dictionary<string, int> _vertexIndex = new Dictionary<string, int>();
 
-        public List<double[]> Vertices  { get; } = new();
-        public List<int[]>    Triangles { get; } = new();
+        public List<double[]> Vertices  { get; } = new List<double[]>();
+        public List<int[]>    Triangles { get; } = new List<int[]>();
 
         public void Triangle(InwSimpleVertex v1, InwSimpleVertex v2, InwSimpleVertex v3)
         {
@@ -62,20 +65,17 @@ namespace NavisworksIfcExporter.Core
             Triangles.Add(new[] { i0, i1, i2 });
         }
 
-        // Primitivas não relevantes para IFC sólido — ignoradas
         public void Line(InwSimpleVertex v1, InwSimpleVertex v2) { }
         public void Point(InwSimpleVertex v1) { }
         public void SnapPoint(InwSimpleVertex v1) { }
 
         private int AddVertex(InwSimpleVertex v)
         {
-            // coord é InwLPos3f: data1=X, data2=Y, data3=Z
             var pos = (Array)v.coord;
             double x = (double)pos.GetValue(1);
             double y = (double)pos.GetValue(2);
             double z = (double)pos.GetValue(3);
 
-            // Chave para deduplicação com precisão de 6 casas
             var key = $"{x:F6},{y:F6},{z:F6}";
             if (_vertexIndex.TryGetValue(key, out var idx))
                 return idx;

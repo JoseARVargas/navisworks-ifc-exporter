@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Navisworks.Api;
 using NavisworksIfcExporter.Models;
 
@@ -9,7 +10,7 @@ namespace NavisworksIfcExporter.Core
         private readonly PropertyExtractor _propertyExtractor = new();
         private readonly GeometryExtractor _geometryExtractor = new();
 
-        public IEnumerable<ElementData> Traverse(ModelItemCollection items, bool includeHidden, bool exportGeometry)
+        public IEnumerable<ElementData> Traverse(IEnumerable<ModelItem> items, bool includeHidden, bool exportGeometry)
         {
             var results = new List<ElementData>();
             foreach (var item in items)
@@ -46,14 +47,15 @@ namespace NavisworksIfcExporter.Core
 
         private static bool IsLeafWithProperties(ModelItem item)
         {
-            // Considera folhas sem geometria mas com propriedades (ex: grupos com PSets)
-            return !item.Children.Any && item.PropertyCategories.Count > 0;
+            return !item.Children.Any() && item.PropertyCategories.Any();
         }
 
         private static string GetCategory(ModelItem item)
         {
-            var cat = item.PropertyCategories.FindPropertyCategory("Item");
-            return cat?.Properties.FindPropertyByDisplayName("Category")?.Value?.ToDisplayString()
+            var cat = item.PropertyCategories.FindCategoryByName("Item");
+            return cat?.Properties
+                      .FirstOrDefault(p => p.DisplayName == "Category")?
+                      .Value?.ToDisplayString()
                    ?? "Unknown";
         }
     }

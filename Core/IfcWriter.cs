@@ -5,6 +5,7 @@ using NavisworksIfcExporter.Models;
 using Xbim.Common;
 using Xbim.Common.Step21;
 using Xbim.Ifc;
+using Xbim.IO;
 using Xbim.Ifc4.GeometricConstraintResource;
 using Xbim.Ifc4.GeometricModelResource;
 using Xbim.Ifc4.GeometryResource;
@@ -15,6 +16,7 @@ using Xbim.Ifc4.ProductExtension;
 using Xbim.Ifc4.PropertyResource;
 using Xbim.Ifc4.RepresentationResource;
 using Xbim.Ifc4.SharedBldgElements;
+using Xbim.Ifc4.UtilityResource;
 
 namespace NavisworksIfcExporter.Core
 {
@@ -31,16 +33,11 @@ namespace NavisworksIfcExporter.Core
 
         public void Write(IEnumerable<ElementData> elements, string outputPath)
         {
-            var credentials = new XbimEditorCredentials
-            {
-                ApplicationDevelopersName = _organizationName,
-                ApplicationFullName = "NavisworksIfcExporter",
-                ApplicationVersion = "1.0",
-                EditorsFamilyName = _authorName,
-                EditorsOrganisationName = _organizationName,
-            };
+            using var model = IfcStore.Create(XbimSchemaVersion.Ifc4, XbimStoreType.InMemoryModel);
 
-            using var model = IfcStore.Create(credentials, XbimSchemaVersion.Ifc4, XbimStoreType.InMemoryModel);
+            model.Header.FileName.AuthorName.Add(_authorName);
+            model.Header.FileName.Organization.Add(_organizationName);
+            model.Header.FileName.OriginatingSystem = "NavisworksIfcExporter 1.0";
             using var txn = model.BeginTransaction("Navisworks IFC Export");
 
             var project  = CreateProject(model);
@@ -52,7 +49,7 @@ namespace NavisworksIfcExporter.Core
                 CreateElement(model, storey, element);
 
             txn.Commit();
-            model.SaveAs(outputPath, StorageType.Ifc);
+            model.SaveAs(outputPath);
         }
 
         // -----------------------------------------------------------------------
@@ -163,7 +160,7 @@ namespace NavisworksIfcExporter.Core
         {
             var element = InstantiateIfcElement(model, data.IfcType);
             element.Name = data.Name;
-            element.GlobalId = IfcGloballyUniqueId.ConvertToBase64(Guid.NewGuid());
+            element.GlobalId = new IfcGloballyUniqueId(Guid.NewGuid().ToString("N").Substring(0, 22));
             element.ObjectPlacement = CreatePlacement(model);
 
             if (data.Geometry != null)
@@ -252,13 +249,18 @@ namespace NavisworksIfcExporter.Core
             IfcElement element,
             Dictionary<string, Dictionary<string, string>> propertySets)
         {
-            foreach (var (psetName, props) in propertySets)
+            foreach (var psetKvp in propertySets)
             {
+                var psetName = psetKvp.Key;
+                var props    = psetKvp.Value;
+
                 var pset = model.Instances.New<IfcPropertySet>(ps =>
                 {
                     ps.Name = psetName;
-                    foreach (var (propName, propValue) in props)
+                    foreach (var propKvp in props)
                     {
+                        var propName  = propKvp.Key;
+                        var propValue = propKvp.Value;
                         ps.HasProperties.Add(
                             model.Instances.New<IfcPropertySingleValue>(pv =>
                             {

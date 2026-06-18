@@ -1,3 +1,4 @@
+using System.Linq;
 using Autodesk.Navisworks.Api;
 
 namespace NavisworksIfcExporter.Core
@@ -11,9 +12,9 @@ namespace NavisworksIfcExporter.Core
         public static string Map(ModelItem item)
         {
             var category = item.PropertyCategories
-                              .FindPropertyCategory("Item")?
+                              .FindCategoryByName("Item")?
                               .Properties
-                              .FindPropertyByDisplayName("Category")?
+                              .FirstOrDefault(p => p.DisplayName == "Category")?
                               .Value?.ToDisplayString() ?? string.Empty;
 
             return category.ToLowerInvariant() switch

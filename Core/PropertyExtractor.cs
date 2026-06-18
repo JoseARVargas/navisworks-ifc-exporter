@@ -29,7 +29,7 @@ namespace NavisworksIfcExporter.Core
 
                 foreach (var property in category.Properties)
                 {
-                    var propName = SanitizeName(property.DisplayName ?? property.Name.Name);
+                    var propName = SanitizeName(property.DisplayName ?? property.Name);
                     var propValue = property.Value?.ToDisplayString() ?? string.Empty;
                     props[propName] = propValue;
                 }

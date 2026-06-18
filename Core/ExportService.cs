@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Navisworks.Api;
 using NavisworksIfcExporter.Models;
 
@@ -24,12 +25,13 @@ namespace NavisworksIfcExporter.Core
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument
                       ?? throw new InvalidOperationException("Nenhum documento aberto.");
 
-            ModelItemCollection sourceItems;
+            IEnumerable<ModelItem> sourceItems;
             if (options.SelectionOnly)
             {
-                sourceItems = doc.CurrentSelection.SelectedItems;
-                if (sourceItems.Count == 0)
+                var selection = doc.CurrentSelection.SelectedItems;
+                if (!selection.Any())
                     throw new InvalidOperationException("Nenhum elemento selecionado.");
+                sourceItems = selection;
             }
             else
             {

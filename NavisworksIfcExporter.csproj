@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <OutputType>Library</OutputType>
     <AssemblyName>NavisworksIfcExporter</AssemblyName>
     <RootNamespace>NavisworksIfcExporter</RootNamespace>
@@ -23,16 +23,12 @@
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Api.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Autodesk.Navisworks.Gui">
-      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Gui.dll</HintPath>
+    <Reference Include="Autodesk.Navisworks.ComApi">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.ComApi.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.ComApi">
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Autodesk.Navisworks.Interop.Interop">
-      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.Interop.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
