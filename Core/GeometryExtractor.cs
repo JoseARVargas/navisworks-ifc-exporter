@@ -1,5 +1,6 @@
+// Geometry extraction adapted from BIMCamel IFC Exporter (MIT License)
+// https://github.com/mrshoma99-rgb/bimcamel-ifc-exporter
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.ComApi;
@@ -10,39 +11,43 @@ namespace NavisworksIfcExporter.Core
 {
     public class GeometryExtractor
     {
-        // Set when COM tessellation fails — lets the caller log the reason.
+        // Set when tessellation fails — lets the caller log the reason once.
         public string LastComError { get; private set; } = string.Empty;
 
         public GeometryData? Extract(ModelItem item)
         {
-            if (!item.HasGeometry)
-                return null;
+            if (!item.HasGeometry) return null;
 
-            // Try full tessellation first; fall back to bounding box.
             var tessellated = TryComTessellation(item);
-            if (tessellated != null)
-                return tessellated;
+            if (tessellated != null) return tessellated;
 
             return ExtractBoundingBox(item);
         }
 
         // -----------------------------------------------------------------------
-        // COM tessellation (exact geometry)
+        // COM tessellation — BIMCamel approach:
+        //   ModelItem → InwOpSelection → Paths → Fragments → GenerateSimplePrimitives
+        // The local→world matrix from each fragment is applied so the resulting mesh
+        // is in world-space coordinates.
         // -----------------------------------------------------------------------
 
         private GeometryData? TryComTessellation(ModelItem item)
         {
-            var callback = new TriangleCollector();
+            var sink = new PrimitiveSink();
             int fragCount = 0;
             try
             {
-                var comPath = (InwOaPath3)ComApiBridge.ToInwOaPath(item);
-                var frags   = (IEnumerable)comPath.Fragments();
+                var coll   = new ModelItemCollection { item };
+                var comSel = ComApiBridge.ToInwOpSelection(coll);
 
-                foreach (InwOaFragment3 frag in frags)
+                foreach (InwOaPath3 path in comSel.Paths())
                 {
-                    fragCount++;
-                    frag.GenerateSimplePrimitives(nwEVertexProperty.eNONE, callback);
+                    foreach (InwOaFragment3 frag in path.Fragments())
+                    {
+                        fragCount++;
+                        sink.CurrentTransform = ReadMatrix(frag);
+                        frag.GenerateSimplePrimitives(nwEVertexProperty.eNORMAL, sink);
+                    }
                 }
             }
             catch (Exception ex)
@@ -51,30 +56,49 @@ namespace NavisworksIfcExporter.Core
                 return null;
             }
 
-            if (callback.Vertices.Count == 0)
+            if (sink.TriangleCount == 0)
             {
-                // Ajuda a diagnosticar: 0 fragmentos COM vs fragmentos COM com 0 triângulos
                 int managedFrags = item.Geometry?.FragmentCount ?? 0;
                 LastComError = $"0 triângulos (frags COM={fragCount}, frags managed={managedFrags})";
                 return null;
             }
 
-            return new GeometryData
+            // Convert flat list (x,y,z triples) to our models
+            var vertices = new List<double[]>(sink.Vertices.Count / 3);
+            for (int i = 0; i < sink.Vertices.Count; i += 3)
+                vertices.Add(new[] { sink.Vertices[i], sink.Vertices[i + 1], sink.Vertices[i + 2] });
+
+            var triangles = new List<int[]>(sink.Indices.Count / 3);
+            for (int i = 0; i < sink.Indices.Count; i += 3)
+                triangles.Add(new[] { sink.Indices[i], sink.Indices[i + 1], sink.Indices[i + 2] });
+
+            return new GeometryData { Vertices = vertices, Triangles = triangles };
+        }
+
+        // Reads the local→world 4×4 matrix from a fragment (column-major, 16 doubles).
+        private static double[]? ReadMatrix(InwOaFragment3 frag)
+        {
+            try
             {
-                Vertices  = callback.Vertices,
-                Triangles = callback.Triangles,
-            };
+                var t   = (InwLTransform3f3)frag.GetLocalToWorldMatrix();
+                var arr = (Array)t.Matrix;
+                int lb  = arr.GetLowerBound(0);
+                var m   = new double[16];
+                for (int i = 0; i < 16; i++)
+                    m[i] = Convert.ToDouble(arr.GetValue(lb + i));
+                return m;
+            }
+            catch { return null; }
         }
 
         // -----------------------------------------------------------------------
-        // Bounding-box fallback (12 triangles, one box per element)
+        // Bounding-box fallback — always available, gives approximate geometry
         // -----------------------------------------------------------------------
 
         public static GeometryData? ExtractBoundingBox(ModelItem item)
         {
             var bb = item.Geometry?.BoundingBox;
-            if (bb == null || bb.IsEmpty)
-                return null;
+            if (bb == null || bb.IsEmpty) return null;
 
             var mn = bb.Min;
             var mx = bb.Max;
@@ -106,22 +130,29 @@ namespace NavisworksIfcExporter.Core
     }
 
     // -----------------------------------------------------------------------
-    // COM callback — collects triangles from GenerateSimplePrimitives
+    // COM callback — adapted from BIMCamel's PrimitiveSink (MIT License).
+    // Applies the local→world matrix so collected vertices are in world-space.
     // -----------------------------------------------------------------------
 
-    internal class TriangleCollector : InwSimplePrimitivesCB
+    internal sealed class PrimitiveSink : InwSimplePrimitivesCB
     {
-        private readonly Dictionary<string, int> _vertexIndex = new Dictionary<string, int>();
+        public readonly List<double> Vertices = new List<double>();
+        public readonly List<int>    Indices  = new List<int>();
+        public int TriangleCount { get; private set; }
 
-        public List<double[]> Vertices  { get; } = new List<double[]>();
-        public List<int[]>    Triangles { get; } = new List<int[]>();
+        // Column-major 4×4 local→world matrix for the fragment being walked; null = identity.
+        public double[]? CurrentTransform { get; set; }
+
+        // Reused scratch buffer — avoids boxing on the hot path (Array.Copy into float[3]).
+        private readonly float[] _c3 = new float[3];
+        private bool _coordIsFloat = true;
 
         public void Triangle(InwSimpleVertex v1, InwSimpleVertex v2, InwSimpleVertex v3)
         {
-            var i0 = AddVertex(v1);
-            var i1 = AddVertex(v2);
-            var i2 = AddVertex(v3);
-            Triangles.Add(new[] { i0, i1, i2 });
+            Indices.Add(AddVertex(v1));
+            Indices.Add(AddVertex(v2));
+            Indices.Add(AddVertex(v3));
+            TriangleCount++;
         }
 
         public void Line(InwSimpleVertex v1, InwSimpleVertex v2) { }
@@ -130,19 +161,52 @@ namespace NavisworksIfcExporter.Core
 
         private int AddVertex(InwSimpleVertex v)
         {
-            var pos = (Array)v.coord;
-            double x = (double)pos.GetValue(1);
-            double y = (double)pos.GetValue(2);
-            double z = (double)pos.GetValue(3);
+            var c  = (Array)v.coord;
+            int lb = c.GetLowerBound(0);
+            double lx, ly, lz;
 
-            var key = $"{x:F6},{y:F6},{z:F6}";
-            if (_vertexIndex.TryGetValue(key, out var idx))
-                return idx;
+            // Fast path: SAFEARRAYs in Navisworks are typically 1-based Single[*].
+            // Array.Copy avoids per-element boxing. Falls back on first type mismatch.
+            if (_coordIsFloat)
+            {
+                try
+                {
+                    Array.Copy(c, lb, _c3, 0, 3);
+                    lx = _c3[0]; ly = _c3[1]; lz = _c3[2];
+                }
+                catch
+                {
+                    _coordIsFloat = false;
+                    lx = Convert.ToDouble(c.GetValue(lb));
+                    ly = Convert.ToDouble(c.GetValue(lb + 1));
+                    lz = Convert.ToDouble(c.GetValue(lb + 2));
+                }
+            }
+            else
+            {
+                lx = Convert.ToDouble(c.GetValue(lb));
+                ly = Convert.ToDouble(c.GetValue(lb + 1));
+                lz = Convert.ToDouble(c.GetValue(lb + 2));
+            }
 
-            idx = Vertices.Count;
-            Vertices.Add(new[] { x, y, z });
-            _vertexIndex[key] = idx;
-            return idx;
+            // Apply local→world transform (column-major: world = M * [x y z 1]^T)
+            double wx, wy, wz;
+            var m = CurrentTransform;
+            if (m == null)
+            {
+                wx = lx; wy = ly; wz = lz;
+            }
+            else
+            {
+                wx = m[0] * lx + m[4] * ly + m[8]  * lz + m[12];
+                wy = m[1] * lx + m[5] * ly + m[9]  * lz + m[13];
+                wz = m[2] * lx + m[6] * ly + m[10] * lz + m[14];
+            }
+
+            Vertices.Add(wx);
+            Vertices.Add(wy);
+            Vertices.Add(wz);
+            return (Vertices.Count / 3) - 1;
         }
     }
 }

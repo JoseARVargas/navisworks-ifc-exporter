@@ -53,19 +53,6 @@ namespace NavisworksIfcExporter.Core
         }
 
         // -----------------------------------------------------------------------
-        // IFC GlobalId: 22 chars, base64 with IFC character set (0-9 A-Z a-z _ $)
-        // -----------------------------------------------------------------------
-
-        private static string NewIfcGuid()
-        {
-            var bytes = Guid.NewGuid().ToByteArray();
-            return Convert.ToBase64String(bytes)
-                .TrimEnd('=')
-                .Replace('+', '_')
-                .Replace('/', '$');
-        }
-
-        // -----------------------------------------------------------------------
         // Estrutura hierárquica IFC
         // -----------------------------------------------------------------------
 
@@ -173,7 +160,9 @@ namespace NavisworksIfcExporter.Core
         {
             var element = InstantiateIfcElement(model, data.IfcType);
             element.Name = data.Name;
-            element.GlobalId = new IfcGloballyUniqueId(NewIfcGuid());
+            // Deterministic GlobalId from Navisworks InstanceGuid (stable across re-exports)
+            var instanceGuid = Guid.TryParse(data.Id, out var g) ? g : Guid.NewGuid();
+            element.GlobalId = new IfcGloballyUniqueId(IfcGuid.ToIfcGuid(instanceGuid));
             element.ObjectPlacement = CreatePlacement(model);
 
             if (data.Geometry != null)
