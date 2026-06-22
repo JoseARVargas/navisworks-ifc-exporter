@@ -18,13 +18,21 @@
     <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
   </ItemGroup>
 
-  <!-- Copia o DLL para a pasta de plugins após cada build -->
+  <ItemGroup>
+    <!-- Ribbon XAML do Navisworks: arquivo de dados, não WPF — excluir da compilação XAML -->
+    <Page Remove="en-US\PHDRibbon.xaml" />
+    <None Include="en-US\PHDRibbon.xaml" />
+  </ItemGroup>
+
+  <!-- Copia o DLL e o XAML de ribbon para a pasta de plugins após cada build -->
   <Target Name="DeployToNavisworks" AfterTargets="Build">
     <PropertyGroup>
       <PluginDir>$(APPDATA)\Autodesk\Navisworks 2026\Plugins\NavisworksIfcExporter</PluginDir>
     </PropertyGroup>
     <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
+    <MakeDir Directories="$(PluginDir)\en-US" Condition="!Exists('$(PluginDir)\en-US')" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="en-US\PHDRibbon.xaml" DestinationFolder="$(PluginDir)\en-US" SkipUnchangedFiles="true" />
     <Message Text="Plugin copiado para $(PluginDir)" Importance="high" />
   </Target>
 
@@ -40,11 +48,6 @@
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.ComApi">
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <!-- Ribbon Autodesk (WPF ribbon compartilhado entre Revit/Navisworks) -->
-    <Reference Include="AdWindows">
-      <HintPath>$(NavisworksDir)\AdWindows.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
