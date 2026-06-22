@@ -1,16 +1,27 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Win32;
 using NavisworksIfcExporter.Core;
+using NavisworksIfcExporter.Models;
 
 namespace NavisworksIfcExporter.UI
 {
     public partial class ExportWindow : Window
     {
+        private List<MappingRule> _mappingRules = new List<MappingRule>();
+
         public ExportWindow()
         {
             InitializeComponent();
+        }
+
+        private void BtnMapping_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new MappingWindow(_mappingRules) { Owner = this };
+            if (win.ShowDialog() == true)
+                _mappingRules = win.GetRules();
         }
 
         private void BtnBrowse_Click(object sender, RoutedEventArgs e)
@@ -46,6 +57,7 @@ namespace NavisworksIfcExporter.UI
                 SelectionOnly    = ChkSelection.IsChecked == true,
                 AuthorName       = TxtAuthor.Text,
                 OrganizationName = TxtOrganization.Text,
+                MappingRules     = _mappingRules,
             };
 
             try

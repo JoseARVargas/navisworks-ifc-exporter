@@ -14,6 +14,7 @@ namespace NavisworksIfcExporter.Core
         public bool   SelectionOnly    { get; set; } = false;
         public string AuthorName       { get; set; } = "Exportador";
         public string OrganizationName { get; set; } = "PHD";
+        public List<MappingRule> MappingRules { get; set; } = new List<MappingRule>();
     }
 
     public class ExportService
@@ -39,7 +40,7 @@ namespace NavisworksIfcExporter.Core
             }
 
             Report("Percorrendo modelo...");
-            var traverser = new ModelTraverser();
+            var traverser = new ModelTraverser(options.MappingRules);
             traverser.ProgressChanged += (_, msg) => Report(msg);
             var elements  = traverser.Traverse(sourceItems, options.IncludeHidden, options.ExportGeometry);
 

@@ -69,11 +69,20 @@
         </GroupBox>
 
         <!-- Botões de ação -->
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button x:Name="BtnExport" Content="Exportar" Width="90" Height="28" Margin="0,0,8,0"
-                    IsDefault="True" Click="BtnExport_Click"/>
-            <Button Content="Fechar" Width="90" Height="28" IsCancel="True" Click="BtnClose_Click"/>
-        </StackPanel>
+        <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Mapeamento de propriedades..." Height="28"
+                    Padding="10,0" Click="BtnMapping_Click"/>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button x:Name="BtnExport" Content="Exportar" Width="90" Height="28" Margin="0,0,8,0"
+                        IsDefault="True" Click="BtnExport_Click"/>
+                <Button Content="Fechar" Width="90" Height="28" IsCancel="True" Click="BtnClose_Click"/>
+            </StackPanel>
+        </Grid>
 
     </StackPanel>
 </Window>

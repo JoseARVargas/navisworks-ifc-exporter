@@ -10,6 +10,12 @@ namespace NavisworksIfcExporter.Core
     {
         private readonly PropertyExtractor _propertyExtractor = new();
         private readonly GeometryExtractor _geometryExtractor = new();
+        private readonly IList<MappingRule>? _mappingRules;
+
+        public ModelTraverser(IList<MappingRule>? mappingRules = null)
+        {
+            _mappingRules = mappingRules;
+        }
 
         public event EventHandler<string>? ProgressChanged;
 
@@ -37,7 +43,10 @@ namespace NavisworksIfcExporter.Core
 
             if (item.HasGeometry || IsLeafWithProperties(item))
             {
-                var props = CollectProperties(item);
+                var rawProps = CollectProperties(item);
+                var props    = (_mappingRules?.Count > 0)
+                    ? PropertyMapper.Apply(rawProps, _mappingRules)
+                    : rawProps;
 
                 // Diagnóstico: loga categorias e contagem do primeiro elemento exportado
                 if (!diagDone)
