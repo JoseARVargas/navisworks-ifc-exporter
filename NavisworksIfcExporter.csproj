@@ -42,6 +42,11 @@
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Ribbon Autodesk (WPF ribbon compartilhado entre Revit/Navisworks) -->
+    <Reference Include="AdWindows">
+      <HintPath>$(NavisworksDir)\AdWindows.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
