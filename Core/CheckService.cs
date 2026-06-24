@@ -123,11 +123,14 @@ namespace NavisworksIfcExporter.Core
         public static List<(ModelItem item, string sourceFile)> GetGeometryItems(Document doc)
         {
             var result = new List<(ModelItem, string)>();
+            PluginLogger.Info($"Check.GetGeometryItems: {doc.Models.Count} model(s) no documento");
             foreach (var model in doc.Models)
             {
                 string src = model.SourceFileName ?? model.FileName ?? "";
+                PluginLogger.Info($"  Model: SourceFileName=\"{model.SourceFileName}\" FileName=\"{model.FileName}\"");
                 CollectGeometry(model.RootItem.Children, src, result);
             }
+            PluginLogger.Info($"Check.GetGeometryItems: {result.Count} itens com geometria coletados");
             return result;
         }
 

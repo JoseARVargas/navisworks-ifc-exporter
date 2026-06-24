@@ -91,6 +91,8 @@ namespace NavisworksIfcExporter.UI
 
             SetProgress(true, 0);
             SetStatus("Coletando elementos do modelo...");
+            NavisworksIfcExporter.Core.PluginLogger.Clear();
+            NavisworksIfcExporter.Core.PluginLogger.Info($"Check iniciado. Regras: {_rules.Count}, SomenteErros: {ChkOnlyFailures.IsChecked}");
             await Dispatcher.Yield(DispatcherPriority.Background);
 
             try
@@ -147,11 +149,13 @@ namespace NavisworksIfcExporter.UI
                     summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes  |  ⚠ {wrongCat} Cat. errada";
                 }
 
+                NavisworksIfcExporter.Core.PluginLogger.Info($"Check concluído: {summary}");
                 SetStatus(summary);
                 BtnExport.IsEnabled = results.Count > 0;
             }
             catch (Exception ex)
             {
+                NavisworksIfcExporter.Core.PluginLogger.Error("Check falhou", ex);
                 SetStatus($"ERRO: {ex.Message}");
                 MessageBox.Show(ex.Message, "Erro na verificação",
                     MessageBoxButton.OK, MessageBoxImage.Error);
