@@ -97,7 +97,7 @@ namespace NavisworksIfcExporter.UI
             {
                 bool onlyFail = ChkOnlyFailures.IsChecked == true;
                 var results = new List<CheckResult>();
-                int ok = 0, empty = 0, missing = 0;
+                int ok = 0, empty = 0, missing = 0, wrongCat = 0;
 
                 // Collect all geometry items with their source files (from doc.Models)
                 var allItems = CheckService.GetGeometryItems(doc);
@@ -125,9 +125,10 @@ namespace NavisworksIfcExporter.UI
 
                 foreach (var r in results)
                 {
-                    if      (r.Resultado == CheckService.OK)      ok++;
-                    else if (r.Resultado == CheckService.EMPTY)   empty++;
-                    else if (r.Resultado == CheckService.MISSING) missing++;
+                    if      (r.Resultado == CheckService.OK)             ok++;
+                    else if (r.Resultado == CheckService.EMPTY)          empty++;
+                    else if (r.Resultado == CheckService.MISSING)        missing++;
+                    else if (r.Resultado == CheckService.WRONG_CATEGORY) wrongCat++;
                 }
 
                 string summary;
@@ -143,7 +144,7 @@ namespace NavisworksIfcExporter.UI
                 }
                 else
                 {
-                    summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
+                    summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes  |  ⚠ {wrongCat} Cat. errada";
                 }
 
                 SetStatus(summary);
