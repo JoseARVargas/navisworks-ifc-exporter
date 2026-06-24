@@ -128,7 +128,7 @@ namespace NavisworksIfcExporter
                     Size           = RibbonItemSize.Large,
                     Orientation    = Orientation.Vertical,
                     IsEnabled      = true,
-                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    LargeImage     = LoadIcon("auto_attach_qto_32x32.png"),
                     CommandHandler = new RibbonRelayCommand(() =>
                         Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("QtoAutoAttach.PHD")),
                 };
@@ -147,7 +147,7 @@ namespace NavisworksIfcExporter
                     Size           = RibbonItemSize.Large,
                     Orientation    = Orientation.Vertical,
                     IsEnabled      = true,
-                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    LargeImage     = LoadIcon("realcar_selecao_32x32.png"),
                     CommandHandler = new RibbonRelayCommand(() =>
                         Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("HighlightSelection.PHD")),
                 };
@@ -160,7 +160,7 @@ namespace NavisworksIfcExporter
                     Size           = RibbonItemSize.Large,
                     Orientation    = Orientation.Vertical,
                     IsEnabled      = true,
-                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    LargeImage     = LoadIcon("restaurar_aparencia_32x32.png"),
                     CommandHandler = new RibbonRelayCommand(() =>
                         Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ResetAppearance.PHD")),
                 };
@@ -173,7 +173,7 @@ namespace NavisworksIfcExporter
                     Size           = RibbonItemSize.Large,
                     Orientation    = Orientation.Vertical,
                     IsEnabled      = true,
-                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    LargeImage     = LoadIcon("verificar_propriedades_32x32.png"),
                     CommandHandler = new RibbonRelayCommand(() =>
                         Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("CheckProperties.PHD")),
                 };

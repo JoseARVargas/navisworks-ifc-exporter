@@ -20,6 +20,10 @@
     <Resource Include="Resources\exportar_clash_results_32x32.png"/>
     <Resource Include="Resources\exportar_fbx_sets_32x32.png"/>
     <Resource Include="Resources\exportar_selecao_ifc_32x32.png"/>
+    <Resource Include="Resources\verificar_propriedades_32x32.png"/>
+    <Resource Include="Resources\auto_attach_qto_32x32.png"/>
+    <Resource Include="Resources\realcar_selecao_32x32.png"/>
+    <Resource Include="Resources\restaurar_aparencia_32x32.png"/>
   </ItemGroup>
 
   <ItemGroup>
