@@ -198,7 +198,7 @@ namespace NavisworksIfcExporter.Core
 
         private static string GetSourceFile(ModelItem item)
         {
-            try { return item.HasModel ? (item.Model.SourceFileName ?? item.Model.FileName ?? "") : ""; }
+            try { return item.Model?.SourceFileName ?? item.Model?.FileName ?? ""; }
             catch { return ""; }
         }
 
