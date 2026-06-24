@@ -130,6 +130,19 @@ namespace NavisworksIfcExporter.Core
             return result;
         }
 
+        // Returns the distinct source file names (just filenames, no path) found in doc.Models
+        public static List<string> GetDistinctSourceFiles(Document doc)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var model in doc.Models)
+            {
+                string full = model.SourceFileName ?? model.FileName ?? "";
+                string name = Path.GetFileName(full);
+                if (!string.IsNullOrEmpty(name)) seen.Add(name);
+            }
+            return seen.OrderBy(x => x).ToList();
+        }
+
         private static void CollectGeometry(
             IEnumerable<ModelItem> items, string sourceFile,
             List<(ModelItem, string)> result)

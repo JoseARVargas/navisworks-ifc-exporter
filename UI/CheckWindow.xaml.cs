@@ -130,9 +130,21 @@ namespace NavisworksIfcExporter.UI
                     else if (r.Resultado == CheckService.MISSING) missing++;
                 }
 
-                string summary = results.Count == 0
-                    ? $"Nenhum resultado. {total} elemento(s) percorrido(s) — verifique se a coluna Disciplina corresponde ao Source File do modelo."
-                    : $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
+                string summary;
+                if (results.Count == 0)
+                {
+                    var srcFiles = CheckService.GetDistinctSourceFiles(doc);
+                    string fileList = srcFiles.Count == 0
+                        ? "nenhum arquivo-fonte detectado"
+                        : string.Join("  |  ", srcFiles);
+                    summary = $"Nenhum resultado. {total} elemento(s) percorrido(s).\n" +
+                              $"Source files no modelo: {fileList}\n" +
+                              $"A coluna Disciplina deve ser substring desse nome (ex: se o arquivo é \"ARQ_modelo.rvt\", use \"ARQ\").";
+                }
+                else
+                {
+                    summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
+                }
 
                 SetStatus(summary);
                 BtnExport.IsEnabled = results.Count > 0;
