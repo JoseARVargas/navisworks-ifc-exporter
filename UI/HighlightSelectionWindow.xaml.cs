@@ -26,11 +26,11 @@ namespace NavisworksIfcExporter.UI
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) { TxtStatus.Text = "Nenhum documento aberto."; return; }
 
-            int selected   = doc.CurrentSelection.SelectedItems.Count;
-            int totalGeom  = WalkGeometry(doc.Models.RootItems).Count();
+            int selected  = doc.CurrentSelection.SelectedItems.Count;
+            int totalGeom = WalkGeometry(doc.Models.RootItems).Count();
 
             TxtStatus.Text = selected > 0
-                ? $"Seleção atual: {selected} elemento(s)  |  Não selecionados: {totalGeom - selected} elemento(s)"
+                ? $"Seleção atual: {selected} elemento(s)  |  Total com geometria: {totalGeom}"
                 : "Nenhum elemento selecionado. Faça uma seleção no Navisworks e clique em Aplicar.";
 
             BtnApply.IsEnabled = selected > 0;
@@ -50,16 +50,15 @@ namespace NavisworksIfcExporter.UI
         {
             var dlg = new System.Windows.Forms.ColorDialog
             {
-                Color          = System.Drawing.Color.FromArgb(_pickedColor.R, _pickedColor.G, _pickedColor.B),
-                FullOpen       = true,
-                AllowFullOpen  = true,
+                Color         = System.Drawing.Color.FromArgb(_pickedColor.R, _pickedColor.G, _pickedColor.B),
+                FullOpen      = true,
+                AllowFullOpen = true,
             };
 
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            var owner  = System.Windows.Forms.Control.FromHandle(helper.Handle)
-                         ?? new System.Windows.Forms.NativeWindow().AsControl(helper.Handle);
+            var owner  = new Win32Window(helper.Handle);
 
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (dlg.ShowDialog(owner) == System.Windows.Forms.DialogResult.OK)
             {
                 var c = dlg.Color;
                 _pickedColor = System.Windows.Media.Color.FromRgb(c.R, c.G, c.B);
@@ -81,10 +80,8 @@ namespace NavisworksIfcExporter.UI
             if (ChkLivePreview.IsChecked == true && _overrideActive) ApplyOverride();
         }
 
-        private void UpdateSwatch()
-        {
+        private void UpdateSwatch() =>
             ColorSwatch.Background = new SolidColorBrush(_pickedColor);
-        }
 
         // -----------------------------------------------------------------------
         // Transparency slider
@@ -112,8 +109,7 @@ namespace NavisworksIfcExporter.UI
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) return;
 
-            int selected = doc.CurrentSelection.SelectedItems.Count;
-            if (selected == 0)
+            if (doc.CurrentSelection.SelectedItems.Count == 0)
             {
                 MessageBox.Show(
                     "Faça uma seleção no Navisworks antes de aplicar o realce.",
@@ -129,38 +125,55 @@ namespace NavisworksIfcExporter.UI
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) return;
 
-            // Always reset first to clear any previous override
-            doc.Models.ResetAllTemporaryMaterials();
+            try
+            {
+                doc.Models.ResetAllTemporaryMaterials();
 
-            var selectedGuids = new HashSet<Guid>(
-                doc.CurrentSelection.SelectedItems.Select(i => i.InstanceGuid));
+                // Expand selection: selected items + all their descendants
+                // HashSet<ModelItem> uses native-handle equality (same as FbxExportWindow)
+                var covered = new HashSet<ModelItem>();
+                foreach (var sel in doc.CurrentSelection.SelectedItems)
+                    foreach (var desc in WalkAll(new[] { sel }))
+                        covered.Add(desc);
 
-            var unselected = WalkGeometry(doc.Models.RootItems)
-                .Where(i => !selectedGuids.Contains(i.InstanceGuid))
-                .ToList();
+                if (covered.Count == 0) { TxtStatus.Text = "Nenhum elemento coberto pela seleção."; return; }
 
-            if (unselected.Count == 0) return;
+                // Geometry items NOT covered by selection
+                var unselected = WalkGeometry(doc.Models.RootItems)
+                    .Where(item => !covered.Contains(item))
+                    .ToList();
 
-            double r = _pickedColor.R / 255.0;
-            double g = _pickedColor.G / 255.0;
-            double b = _pickedColor.B / 255.0;
-            var nwColor = new NwColor(r, g, b);
+                if (unselected.Count == 0)
+                {
+                    TxtStatus.Text = "Todos os elementos com geometria estão na seleção — nada a realçar.";
+                    return;
+                }
 
-            double transparency = SliderTransp.Value / 100.0;
+                double r = _pickedColor.R / 255.0;
+                double g = _pickedColor.G / 255.0;
+                double b = _pickedColor.B / 255.0;
+                double transparency = SliderTransp.Value / 100.0;
 
-            doc.Models.OverrideTemporaryColor(unselected, nwColor);
-            doc.Models.OverrideTemporaryTransparency(unselected, transparency);
+                doc.Models.OverrideTemporaryColor(unselected, new NwColor(r, g, b));
+                doc.Models.OverrideTemporaryTransparency(unselected, transparency);
 
-            _overrideActive     = true;
-            BtnRestore.IsEnabled = true;
+                _overrideActive      = true;
+                BtnRestore.IsEnabled = true;
+                TxtStatus.Text = $"Realce aplicado: {unselected.Count} elemento(s) não selecionado(s) com cor/transparência alteradas.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao aplicar realce:\n{ex.Message}", "Erro",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void BtnRestore_Click(object sender, RoutedEventArgs e)
         {
-            var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
-            doc?.Models.ResetAllTemporaryMaterials();
+            Autodesk.Navisworks.Api.Application.ActiveDocument?.Models.ResetAllTemporaryMaterials();
             _overrideActive      = false;
             BtnRestore.IsEnabled = false;
+            TxtStatus.Text       = "Aparência restaurada.";
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
@@ -176,6 +189,16 @@ namespace NavisworksIfcExporter.UI
         // Helpers
         // -----------------------------------------------------------------------
 
+        private static IEnumerable<ModelItem> WalkAll(IEnumerable<ModelItem> items)
+        {
+            foreach (var item in items)
+            {
+                yield return item;
+                foreach (var child in WalkAll(item.Children))
+                    yield return child;
+            }
+        }
+
         private static IEnumerable<ModelItem> WalkGeometry(IEnumerable<ModelItem> items)
         {
             foreach (var item in items)
@@ -184,23 +207,13 @@ namespace NavisworksIfcExporter.UI
                 foreach (var child in WalkGeometry(item.Children)) yield return child;
             }
         }
-    }
 
-    // WinForms helper: wrap a native handle as a Form owner for dialogs
-    internal static class NativeWindowHelper
-    {
-        internal static System.Windows.Forms.Control AsControl(
-            this System.Windows.Forms.NativeWindow nw, IntPtr handle)
+        // Minimal IWin32Window wrapper for WinForms dialogs
+        private sealed class Win32Window : System.Windows.Forms.IWin32Window
         {
-            nw.AssignHandle(handle);
-            return new OwnerControl(handle);
-        }
-
-        private sealed class OwnerControl : System.Windows.Forms.Control
-        {
-            internal OwnerControl(IntPtr handle) { }
-            protected override void WndProc(ref System.Windows.Forms.Message m)
-                => base.WndProc(ref m);
+            private readonly IntPtr _handle;
+            public Win32Window(IntPtr handle) { _handle = handle; }
+            public IntPtr Handle => _handle;
         }
     }
 }
