@@ -12,9 +12,10 @@ namespace NavisworksIfcExporter.UI
     {
         private List<MappingRule> _mappingRules = new List<MappingRule>();
 
-        public ExportWindow()
+        public ExportWindow(bool selectionOnly = false)
         {
             InitializeComponent();
+            if (selectionOnly) ChkSelection.IsChecked = true;
         }
 
         private void BtnMapping_Click(object sender, RoutedEventArgs e)

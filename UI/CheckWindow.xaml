@@ -1,0 +1,126 @@
+<Window x:Class="NavisworksIfcExporter.UI.CheckWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Verificação de Propriedades  |  PHD Eng. Digital"
+        Width="980" Height="700"
+        MinWidth="700" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <Style x:Key="ResultRow" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Resultado}" Value="✓ Preenchida">
+                    <Setter Property="Background" Value="#E8F5E9"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Resultado}" Value="⚠ Vazia">
+                    <Setter Property="Background" Value="#FFFDE7"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Resultado}" Value="✗ Ausente">
+                    <Setter Property="Background" Value="#FFEBEE"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Arquivo de regras -->
+            <RowDefinition Height="Auto"/>  <!-- Grid de regras -->
+            <RowDefinition Height="Auto"/>  <!-- Opções -->
+            <RowDefinition Height="*"/>     <!-- Resultado -->
+            <RowDefinition Height="Auto"/>  <!-- Status bar -->
+            <RowDefinition Height="Auto"/>  <!-- Botões -->
+        </Grid.RowDefinitions>
+
+        <!-- ===== Arquivo de regras ===== -->
+        <GroupBox Grid.Row="0" Header="Arquivo de regras (CSV ou Excel)" Padding="8,6" Margin="0,0,0,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtFilePath" IsReadOnly="True" Height="26"
+                         VerticalContentAlignment="Center" Background="#F8F8F8"
+                         Padding="4,0" Margin="0,0,6,0"
+                         Text="Nenhum arquivo selecionado"/>
+                <Button Grid.Column="1" Content="Procurar..." Height="26" Padding="10,0"
+                        Margin="0,0,6,0" Click="BtnBrowse_Click"/>
+                <Button Grid.Column="2" x:Name="BtnLoad" Content="Carregar regras" Height="26" Padding="10,0"
+                        IsEnabled="False" Click="BtnLoad_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- ===== Grid de regras carregadas ===== -->
+        <GroupBox Grid.Row="1" Header="Regras carregadas" Padding="0,4" Margin="0,0,0,4">
+            <DataGrid x:Name="GridRules"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      IsReadOnly="True" MaxHeight="120"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      RowHeight="22" FontSize="11" BorderThickness="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Disciplina (filtro Source File)" Binding="{Binding Disciplina}" Width="*"/>
+                    <DataGridTextColumn Header="Categoria"   Binding="{Binding Categoria}"   Width="*"/>
+                    <DataGridTextColumn Header="Propriedade" Binding="{Binding Propriedade}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- ===== Opções ===== -->
+        <GroupBox Grid.Row="2" Header="Opções" Padding="8,6" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox x:Name="ChkOnlyFailures" Content="Exibir apenas falhas (⚠ Vazia e ✗ Ausente)"
+                          VerticalAlignment="Center" Margin="0,0,24,0"/>
+                <TextBlock Text="Exportar resultados para:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="TxtOutputDir" Width="280" Height="22"
+                         VerticalContentAlignment="Center" Padding="4,0" Margin="0,0,6,0"/>
+                <Button Content="..." Width="26" Height="22" Click="BtnOutputDir_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- ===== Resultado ===== -->
+        <GroupBox Grid.Row="3" Header="Resultado" Padding="0,4" Margin="0,0,0,4">
+            <DataGrid x:Name="GridResults"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      IsReadOnly="True"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      RowHeight="22" FontSize="11" BorderThickness="0"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      EnableRowVirtualization="True"
+                      RowStyle="{StaticResource ResultRow}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Disciplina"  Binding="{Binding Disciplina}"  Width="80"/>
+                    <DataGridTextColumn Header="Source File" Binding="{Binding SourceFile}"  Width="150"/>
+                    <DataGridTextColumn Header="GUID"        Binding="{Binding Guid}"        Width="240"/>
+                    <DataGridTextColumn Header="Categoria"   Binding="{Binding Categoria}"   Width="120"/>
+                    <DataGridTextColumn Header="Propriedade" Binding="{Binding Propriedade}" Width="130"/>
+                    <DataGridTextColumn Header="Valor atual" Binding="{Binding Valor}"       Width="120"/>
+                    <DataGridTextColumn Header="Resultado"   Binding="{Binding Resultado}"   Width="110"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- ===== Status ===== -->
+        <Border Grid.Row="4" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1"
+                CornerRadius="3" Padding="10,5" Margin="0,0,0,6">
+            <TextBlock x:Name="TxtStatus" Text="Pronto. Carregue um arquivo de regras para iniciar."
+                       FontSize="11" Foreground="#444"/>
+        </Border>
+
+        <!-- ===== Botões ===== -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnRun" Content="▶  Executar Verificação"
+                    Width="170" Height="30" Margin="0,0,8,0"
+                    IsEnabled="False" IsDefault="True" Click="BtnRun_Click"/>
+            <Button x:Name="BtnExport" Content="Exportar CSV"
+                    Width="110" Height="30" Margin="0,0,8,0"
+                    IsEnabled="False" Click="BtnExport_Click"/>
+            <Button Content="Fechar" Width="80" Height="30"
+                    IsCancel="True" Click="BtnClose_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

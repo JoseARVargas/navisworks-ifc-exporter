@@ -52,23 +52,40 @@
             </DataGrid.RowStyle>
 
             <DataGrid.Columns>
-                <!-- Categoria origem -->
-                <DataGridTextColumn Header="Categoria origem (Navisworks)"
-                                    Binding="{Binding SourcePset, UpdateSourceTrigger=PropertyChanged}"
-                                    Width="*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock"><Setter Property="Margin" Value="4,0"/></Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <!-- Categoria origem — ComboBox com todas as categorias do modelo -->
+                <DataGridTemplateColumn Header="Categoria origem (Navisworks)" Width="*" SortMemberPath="SourcePset">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding SourcePset}" Margin="4,0" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox IsEditable="True" StaysOpenOnEdit="True"
+                                      Text="{Binding SourcePset, UpdateSourceTrigger=PropertyChanged}"
+                                      BorderThickness="0" Height="22" VerticalContentAlignment="Center"
+                                      Loaded="CmbSourcePset_Loaded"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
 
-                <!-- Propriedade origem -->
-                <DataGridTextColumn Header="Propriedade origem"
-                                    Binding="{Binding SourceProperty, UpdateSourceTrigger=PropertyChanged}"
-                                    Width="*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock"><Setter Property="Margin" Value="4,0"/></Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
+                <!-- Propriedade origem — ComboBox filtrado pela categoria selecionada -->
+                <DataGridTemplateColumn Header="Propriedade origem" Width="*" SortMemberPath="SourceProperty">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding SourceProperty}" Margin="4,0" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <ComboBox IsEditable="True" StaysOpenOnEdit="True"
+                                      Text="{Binding SourceProperty, UpdateSourceTrigger=PropertyChanged}"
+                                      Tag="{Binding SourcePset}"
+                                      BorderThickness="0" Height="22" VerticalContentAlignment="Center"
+                                      Loaded="CmbSourceProperty_Loaded"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
 
                 <!-- Categoria destino (IFC Pset) — ComboBox editável -->
                 <DataGridTemplateColumn Header="Categoria destino (IFC Pset)" Width="*" SortMemberPath="TargetPset">
@@ -126,7 +143,12 @@
                 <Button Content="+ Adicionar" Width="88" Height="26" Margin="0,0,4,0" Click="BtnAdd_Click"/>
                 <Button Content="− Remover" Width="88" Height="26" Margin="0,0,4,0" Click="BtnRemove_Click"/>
                 <Button Content="↑ Subir" Width="72" Height="26" Margin="0,0,4,0" Click="BtnMoveUp_Click"/>
-                <Button Content="↓ Descer" Width="72" Height="26" Click="BtnMoveDown_Click"/>
+                <Button Content="↓ Descer" Width="72" Height="26" Margin="0,0,12,0" Click="BtnMoveDown_Click"/>
+                <Button x:Name="BtnScan" Content="⟳ Escanear modelo" Height="26" Padding="8,0"
+                        ToolTip="Lê as propriedades do modelo aberto para popular os campos de categoria e propriedade"
+                        Click="BtnScan_Click"/>
+                <TextBlock x:Name="TxtScanStatus" VerticalAlignment="Center" Margin="8,0,0,0"
+                           FontSize="11" Foreground="#888"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal">

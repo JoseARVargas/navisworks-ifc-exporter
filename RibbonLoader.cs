@@ -1,171 +1,224 @@
 using System;
-using System.Globalization;
-using System.IO;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using Autodesk.Navisworks.Api;
+using System.Linq;
+using System.Reflection;
+using System.Windows.Controls;
+using System.Windows.Threading;
 using Autodesk.Navisworks.Api.Plugins;
 using Autodesk.Windows;
-using NavisworksIfcExporter.UI;
 
 namespace NavisworksIfcExporter
 {
-    // EventWatcherPlugin: discovered automatically by Navisworks from the DLL.
-    // OnLoaded() runs as soon as the assembly is loaded; the ribbon may not be
-    // ready yet, so we defer tab creation to Application.GuiCreated.
     [Plugin("NavisworksIfcExporter.Ribbon", "PHD",
-        DisplayName = "PHD Coordination Ribbon")]
+        DisplayName = "PHD Ribbon Loader")]
     public class RibbonLoader : EventWatcherPlugin
     {
-        private const string TabId   = "PHD_COORDINATION_TAB";
-        private const string PanelId = "PHD_IFC_PANEL";
-
-        private static readonly string LogPath = Path.Combine(
-            Path.GetTempPath(), "NavisworksIfcExporter_ribbon.log");
-
         public override void OnLoaded()
         {
-            Log("OnLoaded() called");
-
-            // Try immediately — succeeds if ribbon is already available.
-            if (TryBuildRibbon())
-            {
-                Log("Ribbon built immediately in OnLoaded()");
-                return;
-            }
-
-            // Ribbon not ready yet: defer to Application.GuiCreated.
-            Log("Ribbon null in OnLoaded() — deferring to GuiCreated");
             Autodesk.Navisworks.Api.Application.GuiCreated += OnGuiCreated;
         }
 
         private void OnGuiCreated(object sender, EventArgs e)
         {
             Autodesk.Navisworks.Api.Application.GuiCreated -= OnGuiCreated;
-            Log("GuiCreated fired");
-            if (TryBuildRibbon())
-                Log("Ribbon built from GuiCreated");
-            else
-                Log("ERROR: Ribbon still null after GuiCreated");
+            // Navisworks initializes NWRibbonControl after GuiCreated — defer to idle
+            Dispatcher.CurrentDispatcher.BeginInvoke(
+                DispatcherPriority.ApplicationIdle,
+                new Action(AddPhdTab));
         }
 
-        private bool TryBuildRibbon()
+        private static System.Windows.Media.ImageSource LoadIcon(string fileName)
+            => new System.Windows.Media.Imaging.BitmapImage(
+                new Uri($"pack://application:,,,/NavisworksIfcExporter;component/Resources/{fileName}"));
+
+        private static void AddPhdTab()
         {
             try
             {
-                var ribbon = ComponentManager.Ribbon;
-                if (ribbon == null)
-                {
-                    Log("ComponentManager.Ribbon is null");
-                    return false;
-                }
+                var roamer = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "navisworks.gui.roamer");
+                if (roamer == null) return;
 
-                // Guard: avoid duplicate tabs if the plugin assembly is reloaded.
-                if (ribbon.FindTab(TabId) != null)
+                var nwType = roamer.GetType("Autodesk.Navisworks.Gui.Roamer.AIRLook.NWRibbonControl");
+                var instanceProp = nwType?.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+                var ribbon = instanceProp?.GetValue(null) as RibbonControl;
+                if (ribbon == null) return;
+
+                // Remove existing tab so updates to buttons/panels always take effect
+                var existing = ribbon.Tabs.FirstOrDefault(t => t.Id == "PHD_Coordination");
+                if (existing != null) ribbon.Tabs.Remove(existing);
+
+                var btnExport = new RibbonButton
                 {
-                    Log("Tab already exists — skipping");
-                    return true;
-                }
+                    Id             = "ExportIfc.PHD",
+                    Text           = "Exportar IFC",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ExportIfc.PHD")),
+                };
+
+                var btnSearchSet = new RibbonButton
+                {
+                    Id             = "ExportIfcSearchSet.PHD",
+                    Text           = "Exportar por\nSearch Set",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_searchset_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ExportIfcSearchSet.PHD")),
+                };
+
+                var btnClashCsv = new RibbonButton
+                {
+                    Id             = "ExportClashCsv.PHD",
+                    Text           = "Export Clash\nResults",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_clash_results_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ExportClashCsv.PHD")),
+                };
+
+                var btnIfcSelection = new RibbonButton
+                {
+                    Id             = "ExportIfcSelection.PHD",
+                    Text           = "Exportar\nSeleção IFC",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_selecao_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ExportIfcSelection.PHD")),
+                };
+
+                var btnFbxSets = new RibbonButton
+                {
+                    Id             = "ExportFbxSets.PHD",
+                    Text           = "Exportar FBX\npor Sets",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_fbx_sets_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ExportFbxSets.PHD")),
+                };
+
+                var panelSource = new RibbonPanelSource { Id = "PHD_IFC_Panel", Title = "IFC Export" };
+                panelSource.Items.Add(btnExport);
+                panelSource.Items.Add(btnSearchSet);
+                panelSource.Items.Add(btnIfcSelection);
+
+                var clashPanelSource = new RibbonPanelSource { Id = "PHD_Clash_Panel", Title = "Clash Detection" };
+                clashPanelSource.Items.Add(btnClashCsv);
+
+                var btnQtoAttach = new RibbonButton
+                {
+                    Id             = "QtoAutoAttach.PHD",
+                    Text           = "QTO\nAuto Attach",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("QtoAutoAttach.PHD")),
+                };
+
+                var fbxPanelSource = new RibbonPanelSource { Id = "PHD_FBX_Panel", Title = "FBX" };
+                fbxPanelSource.Items.Add(btnFbxSets);
+
+                var qtoPanelSource = new RibbonPanelSource { Id = "PHD_QTO_Panel", Title = "QTO" };
+                qtoPanelSource.Items.Add(btnQtoAttach);
+
+                var btnHighlight = new RibbonButton
+                {
+                    Id             = "HighlightSelection.PHD",
+                    Text           = "Realçar\nSeleção",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("HighlightSelection.PHD")),
+                };
+
+                var btnResetAppearance = new RibbonButton
+                {
+                    Id             = "ResetAppearance.PHD",
+                    Text           = "Restaurar\nAparência",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("ResetAppearance.PHD")),
+                };
+
+                var btnCheckProps = new RibbonButton
+                {
+                    Id             = "CheckProperties.PHD",
+                    Text           = "Verificar\nPropriedades",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("exportar_ifc_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("CheckProperties.PHD")),
+                };
+
+                var checkPanelSource = new RibbonPanelSource { Id = "PHD_Check_Panel", Title = "Check" };
+                checkPanelSource.Items.Add(btnCheckProps);
+
+                var viewPanelSource = new RibbonPanelSource { Id = "PHD_View_Panel", Title = "View" };
+                viewPanelSource.Items.Add(btnHighlight);
+                viewPanelSource.Items.Add(btnResetAppearance);
+
+                var panel       = new RibbonPanel { Source = panelSource };
+                var clashPanel  = new RibbonPanel { Source = clashPanelSource };
+                var fbxPanel    = new RibbonPanel { Source = fbxPanelSource };
+                var qtoPanel    = new RibbonPanel { Source = qtoPanelSource };
+                var checkPanel  = new RibbonPanel { Source = checkPanelSource };
+                var viewPanel   = new RibbonPanel { Source = viewPanelSource };
 
                 var tab = new RibbonTab
                 {
-                    Title     = "PHD Coordination",
-                    Id        = TabId,
+                    Id        = "PHD_Coordination",
+                    Title     = "PHD Eng. Digital",
                     IsVisible = true,
                 };
+                tab.Panels.Add(panel);
+                tab.Panels.Add(clashPanel);
+                tab.Panels.Add(fbxPanel);
+                tab.Panels.Add(qtoPanel);
+                tab.Panels.Add(checkPanel);
+                tab.Panels.Add(viewPanel);
 
-                var panelSource = new RibbonPanelSource
-                {
-                    Title = "IFC Export",
-                    Id    = PanelId,
-                };
-
-                panelSource.Items.Add(new RibbonButton
-                {
-                    Text           = "Exportar IFC 4",
-                    Id             = "PHD_EXPORT_IFC_BTN",
-                    ShowText       = true,
-                    Size           = RibbonItemSize.Large,
-                    Orientation    = System.Windows.Controls.Orientation.Vertical,
-                    LargeImage     = CreateIcon(32),
-                    Image          = CreateIcon(16),
-                    ToolTip        = new RibbonToolTip
-                    {
-                        Title         = "Exportar IFC 4",
-                        Content       = "Exporta o modelo ativo para IFC 4 com geometria tessellada e propriedades completas.",
-                        IsHelpEnabled = false,
-                    },
-                    CommandHandler = new ExportIfcCommand(),
-                    IsEnabled      = true,
-                });
-
-                tab.Panels.Add(new RibbonPanel { Source = panelSource });
                 ribbon.Tabs.Add(tab);
-                Log($"Tab added: {tab.Title} (id={TabId})");
-                return true;
             }
-            catch (Exception ex)
-            {
-                Log($"EXCEPTION in TryBuildRibbon: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
-                return false;
-            }
-        }
-
-        public override void OnUnloading() { }
-
-        // Simple rotating log for ribbon diagnostics — check %TEMP%\NavisworksIfcExporter_ribbon.log
-        private static void Log(string message)
-        {
-            try { File.AppendAllText(LogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {message}\n"); }
             catch { }
         }
 
-        private static ImageSource CreateIcon(int size)
-        {
-            try
-            {
-                var dv = new DrawingVisual();
-                using (var ctx = dv.RenderOpen())
-                {
-                    ctx.DrawRoundedRectangle(
-                        new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 114, 188)),
-                        null,
-                        new Rect(1, 1, size - 2, size - 2),
-                        3, 3);
-
-                    double fontSize = size >= 32 ? 11.0 : 5.5;
-                    var ft = new FormattedText(
-                        "IFC",
-                        CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight,
-                        new Typeface(new FontFamily("Arial"),
-                                     FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-                        fontSize,
-                        Brushes.White,
-                        1.0);
-
-                    ctx.DrawText(ft, new Point(
-                        Math.Round((size - ft.Width)  / 2),
-                        Math.Round((size - ft.Height) / 2)));
-                }
-
-                var rtb = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
-                rtb.Render(dv);
-                rtb.Freeze();
-                return rtb;
-            }
-            catch { return null!; }
-        }
+        public override void OnUnloading() { }
     }
 
-    internal sealed class ExportIfcCommand : ICommand
+    internal sealed class RibbonRelayCommand : System.Windows.Input.ICommand
     {
+        private readonly Action _execute;
+        internal RibbonRelayCommand(Action execute) { _execute = execute; }
+        public event EventHandler CanExecuteChanged { add { } remove { } }
         public bool CanExecute(object parameter) => true;
-
-        public void Execute(object parameter) => new ExportWindow().ShowDialog();
-
-        public event EventHandler? CanExecuteChanged { add { } remove { } }
+        public void Execute(object parameter) { _execute(); }
     }
 }

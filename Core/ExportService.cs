@@ -15,6 +15,8 @@ namespace NavisworksIfcExporter.Core
         public string AuthorName       { get; set; } = "Exportador";
         public string OrganizationName { get; set; } = "PHD";
         public List<MappingRule> MappingRules { get; set; } = new List<MappingRule>();
+        // When set, overrides SelectionOnly and exports exactly these items
+        public IEnumerable<ModelItem>? ExplicitItems { get; set; }
     }
 
     public class ExportService
@@ -27,7 +29,11 @@ namespace NavisworksIfcExporter.Core
                       ?? throw new InvalidOperationException("Nenhum documento aberto.");
 
             IEnumerable<ModelItem> sourceItems;
-            if (options.SelectionOnly)
+            if (options.ExplicitItems != null)
+            {
+                sourceItems = options.ExplicitItems;
+            }
+            else if (options.SelectionOnly)
             {
                 var selection = doc.CurrentSelection.SelectedItems;
                 if (!selection.Any())

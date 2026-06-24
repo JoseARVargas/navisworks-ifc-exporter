@@ -1,0 +1,206 @@
+<Window x:Class="NavisworksIfcExporter.UI.ClashExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Exportar Clashes — CSV  |  PHD Eng. Digital"
+        Width="580" Height="720"
+        MinWidth="460" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,4,0,4"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="140"/>   <!-- Testes -->
+            <RowDefinition Height="Auto"/>  <!-- Filtro de status -->
+            <RowDefinition Height="150"/>   <!-- Propriedades adicionais -->
+            <RowDefinition Height="Auto"/>  <!-- Arquivo de saída -->
+            <RowDefinition Height="Auto"/>  <!-- Opções CSV -->
+            <RowDefinition Height="65"/>    <!-- Progresso -->
+            <RowDefinition Height="Auto"/>  <!-- Botões -->
+        </Grid.RowDefinitions>
+
+        <!-- ===== Testes de Clash ===== -->
+        <GroupBox Grid.Row="0" Header="Testes de Clash">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="Selecionar todos" Height="22" Padding="8,0"
+                            Margin="0,0,4,0" Click="BtnSelectAll_Click"/>
+                    <Button Grid.Column="1" Content="Desmarcar todos" Height="22" Padding="8,0"
+                            Margin="0,0,4,0" Click="BtnDeselectAll_Click"/>
+                    <Button Grid.Column="3" Content="Atualizar" Width="72" Height="22"
+                            Click="BtnRefresh_Click"/>
+                </Grid>
+                <ListView x:Name="ListTests" BorderBrush="#CCC" BorderThickness="1">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Width="28">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Teste" Width="230" DisplayMemberBinding="{Binding Label}"/>
+                            <GridViewColumn Header="Clashes" Width="65">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding CountLabel}" HorizontalAlignment="Right" Margin="0,0,4,0"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="Status" Width="100" DisplayMemberBinding="{Binding StatusLabel}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </DockPanel>
+        </GroupBox>
+
+        <!-- ===== Filtro de status ===== -->
+        <GroupBox Grid.Row="1" Header="Filtrar por status">
+            <WrapPanel Orientation="Horizontal">
+                <CheckBox x:Name="ChkNew"      Content="Novo"      IsChecked="True"  Margin="0,2,14,2"/>
+                <CheckBox x:Name="ChkActive"   Content="Ativo"     IsChecked="True"  Margin="0,2,14,2"/>
+                <CheckBox x:Name="ChkReviewed" Content="Revisado"  IsChecked="False" Margin="0,2,14,2"/>
+                <CheckBox x:Name="ChkApproved" Content="Aprovado"  IsChecked="False" Margin="0,2,14,2"/>
+                <CheckBox x:Name="ChkResolved" Content="Resolvido" IsChecked="False" Margin="0,2,0,2"/>
+            </WrapPanel>
+        </GroupBox>
+
+        <!-- ===== Propriedades adicionais ===== -->
+        <GroupBox Grid.Row="2" Header="Propriedades adicionais (colunas extras por elemento A e B)">
+            <DockPanel>
+                <!-- Toolbar: Add / Remove / Scan -->
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="+ Adicionar" Height="22" Padding="8,0"
+                            Margin="0,0,4,0" Click="BtnAddProp_Click"/>
+                    <Button Grid.Column="1" Content="− Remover" Height="22" Padding="8,0"
+                            Margin="0,0,4,0" Click="BtnRemoveProp_Click"/>
+                    <Button Grid.Column="3" Content="⟳ Escanear modelo" Height="22" Padding="8,0"
+                            Margin="0,0,4,0" Click="BtnScanModel_Click"/>
+                    <TextBlock x:Name="TxtScanStatus" Grid.Column="4" VerticalAlignment="Center"
+                               FontSize="10" Foreground="#888"/>
+                </Grid>
+
+                <!-- DataGrid de propriedades -->
+                <DataGrid x:Name="GridProps"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          CanUserSortColumns="False" CanUserReorderColumns="False"
+                          SelectionMode="Single" SelectionUnit="FullRow"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          RowHeight="24" FontSize="11"
+                          BorderBrush="#CCC" BorderThickness="1">
+
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Nome no CSV" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding ColumnName}" Margin="4,0" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding ColumnName, UpdateSourceTrigger=PropertyChanged}"
+                                             BorderThickness="0" VerticalContentAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellEditingTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="Categoria Navisworks" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Category}" Margin="4,0" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate>
+                                    <ComboBox IsEditable="True" StaysOpenOnEdit="True"
+                                              Text="{Binding Category, UpdateSourceTrigger=PropertyChanged}"
+                                              BorderThickness="0" Height="22" VerticalContentAlignment="Center"
+                                              Loaded="CmbPropCategory_Loaded"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellEditingTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="Propriedade" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Property}" Margin="4,0" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                            <DataGridTemplateColumn.CellEditingTemplate>
+                                <DataTemplate>
+                                    <ComboBox IsEditable="True" StaysOpenOnEdit="True"
+                                              Text="{Binding Property, UpdateSourceTrigger=PropertyChanged}"
+                                              Tag="{Binding Category}"
+                                              BorderThickness="0" Height="22" VerticalContentAlignment="Center"
+                                              Loaded="CmbPropProperty_Loaded"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellEditingTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </GroupBox>
+
+        <!-- ===== Arquivo de saída ===== -->
+        <GroupBox Grid.Row="3" Header="Arquivo CSV de saída">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtOutputPath" Grid.Column="0" Margin="0,0,4,0"
+                         IsReadOnly="True" VerticalContentAlignment="Center" Height="26"/>
+                <Button Grid.Column="1" Content="Procurar..." Width="80" Height="26"
+                        Click="BtnBrowse_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- ===== Opções CSV ===== -->
+        <GroupBox Grid.Row="4" Header="Separador">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="RbSemicolon" Content="Ponto e vírgula  ( ; )"
+                             IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <RadioButton x:Name="RbComma" Content="Vírgula  ( , )" VerticalAlignment="Center"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- ===== Progresso ===== -->
+        <GroupBox Grid.Row="5" Header="Progresso">
+            <TextBox x:Name="TxtLog" IsReadOnly="True"
+                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                     Background="#F8F8F8" FontFamily="Consolas" FontSize="11"/>
+        </GroupBox>
+
+        <!-- ===== Botões ===== -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="BtnExport" Content="Exportar CSV" Width="110" Height="28"
+                    Margin="0,0,8,0" IsDefault="True" Click="BtnExport_Click"/>
+            <Button Content="Fechar" Width="90" Height="28" IsCancel="True"
+                    Click="BtnClose_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

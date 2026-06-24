@@ -6,6 +6,7 @@
     <AssemblyName>NavisworksIfcExporter</AssemblyName>
     <RootNamespace>NavisworksIfcExporter</RootNamespace>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <LangVersion>9.0</LangVersion>
     <!-- Detecta automaticamente Navisworks 2025 ou 2026; sobrescreva com -p:NavisworksDir="..." -->
@@ -14,25 +15,28 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- xBIM para escrita do IFC 4 -->
-    <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
+    <Resource Include="Resources\exportar_ifc_32x32.png"/>
+    <Resource Include="Resources\exportar_ifc_searchset_32x32.png"/>
+    <Resource Include="Resources\exportar_clash_results_32x32.png"/>
+    <Resource Include="Resources\exportar_fbx_sets_32x32.png"/>
+    <Resource Include="Resources\exportar_selecao_ifc_32x32.png"/>
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Ribbon XAML do Navisworks: arquivo de dados, não WPF — excluir da compilação XAML -->
-    <Page Remove="en-US\PHDRibbon.xaml" />
-    <None Include="en-US\PHDRibbon.xaml" />
+    <!-- xBIM para escrita do IFC 4 -->
+    <PackageReference Include="Xbim.Essentials" Version="5.1.341" />
+    <!-- Leitura de Excel sem dependência do Office -->
+    <PackageReference Include="ExcelDataReader" Version="3.7.0"/>
+    <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0"/>
   </ItemGroup>
 
-  <!-- Copia o DLL e o XAML de ribbon para a pasta de plugins após cada build -->
+  <!-- Copia o DLL para a pasta de plugins após cada build -->
   <Target Name="DeployToNavisworks" AfterTargets="Build">
     <PropertyGroup>
       <PluginDir>$(APPDATA)\Autodesk\Navisworks 2026\Plugins\NavisworksIfcExporter</PluginDir>
     </PropertyGroup>
     <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
-    <MakeDir Directories="$(PluginDir)\en-US" Condition="!Exists('$(PluginDir)\en-US')" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="en-US\PHDRibbon.xaml" DestinationFolder="$(PluginDir)\en-US" SkipUnchangedFiles="true" />
     <Message Text="Plugin copiado para $(PluginDir)" Importance="high" />
   </Target>
 
@@ -48,6 +52,18 @@
     </Reference>
     <Reference Include="Autodesk.Navisworks.Interop.ComApi">
       <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Interop.ComApi.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AdWindows">
+      <HintPath>$(NavisworksDir)\AdWindows.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Clash">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Clash.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Autodesk.Navisworks.Takeoff">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Takeoff.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
