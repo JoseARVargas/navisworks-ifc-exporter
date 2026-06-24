@@ -29,10 +29,9 @@ namespace NavisworksIfcExporter.Core
 
     public static class CheckService
     {
-        public const string OK             = "✓ Preenchida";
-        public const string EMPTY          = "⚠ Vazia";
-        public const string MISSING        = "✗ Ausente";
-        public const string WRONG_CATEGORY = "⚠ Categoria errada";
+        public const string OK      = "✓ Preenchida";
+        public const string EMPTY   = "⚠ Vazia";
+        public const string MISSING = "✗ Ausente";
 
         // -----------------------------------------------------------------------
         // Load rules from file
@@ -217,31 +216,18 @@ namespace NavisworksIfcExporter.Core
         private static (string resultado, string valor) CheckProperty(
             ModelItem item, string category, string propName)
         {
-            string? foundInOtherCategory = null;
-
             foreach (var cat in item.PropertyCategories)
             {
-                bool isTarget = cat.DisplayName.Equals(category, StringComparison.OrdinalIgnoreCase);
+                if (!cat.DisplayName.Equals(category, StringComparison.OrdinalIgnoreCase)) continue;
 
                 foreach (var prop in cat.Properties)
                 {
                     if (!prop.DisplayName.Equals(propName, StringComparison.OrdinalIgnoreCase)) continue;
-
-                    if (isTarget)
-                    {
-                        string val = prop.Value?.ToDisplayString() ?? "";
-                        return (string.IsNullOrWhiteSpace(val) ? EMPTY : OK, val);
-                    }
-
-                    // Property found but in a different category — keep searching for the right one
-                    if (foundInOtherCategory == null)
-                        foundInOtherCategory = cat.DisplayName;
+                    string val = prop.Value?.ToDisplayString() ?? "";
+                    return (string.IsNullOrWhiteSpace(val) ? EMPTY : OK, val);
                 }
+                return (MISSING, "");
             }
-
-            if (foundInOtherCategory != null)
-                return (WRONG_CATEGORY, $"Encontrada em: {foundInOtherCategory}");
-
             return (MISSING, "");
         }
 

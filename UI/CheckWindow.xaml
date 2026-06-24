@@ -19,9 +19,6 @@
                 <DataTrigger Binding="{Binding Resultado}" Value="✗ Ausente">
                     <Setter Property="Background" Value="#FFEBEE"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding Resultado}" Value="⚠ Categoria errada">
-                    <Setter Property="Background" Value="#FFF3E0"/>
-                </DataTrigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
