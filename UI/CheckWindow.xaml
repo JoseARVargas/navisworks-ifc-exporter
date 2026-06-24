@@ -28,6 +28,7 @@
             <RowDefinition Height="Auto"/>  <!-- Arquivo de regras -->
             <RowDefinition Height="Auto"/>  <!-- Grid de regras -->
             <RowDefinition Height="Auto"/>  <!-- Opções -->
+            <RowDefinition Height="Auto"/>  <!-- Barra de progresso -->
             <RowDefinition Height="*"/>     <!-- Resultado -->
             <RowDefinition Height="Auto"/>  <!-- Status bar -->
             <RowDefinition Height="Auto"/>  <!-- Botões -->
@@ -80,8 +81,21 @@
             </StackPanel>
         </GroupBox>
 
+        <!-- ===== Barra de progresso ===== -->
+        <Grid Grid.Row="3" x:Name="PanelProgress" Visibility="Collapsed" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="48"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="PrgBar" Height="18" Minimum="0" Maximum="100" Value="0"
+                         Background="#EEE" Foreground="#1976D2"/>
+            <TextBlock x:Name="TxtPct" Grid.Column="1" Text="0%"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontWeight="SemiBold" FontSize="11"/>
+        </Grid>
+
         <!-- ===== Resultado ===== -->
-        <GroupBox Grid.Row="3" Header="Resultado" Padding="0,4" Margin="0,0,0,4">
+        <GroupBox Grid.Row="4" Header="Resultado" Padding="0,4" Margin="0,0,0,4">
             <DataGrid x:Name="GridResults"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False" CanUserDeleteRows="False"
@@ -105,14 +119,14 @@
         </GroupBox>
 
         <!-- ===== Status ===== -->
-        <Border Grid.Row="4" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1"
+        <Border Grid.Row="5" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1"
                 CornerRadius="3" Padding="10,5" Margin="0,0,0,6">
             <TextBlock x:Name="TxtStatus" Text="Pronto. Carregue um arquivo de regras para iniciar."
                        FontSize="11" Foreground="#444"/>
         </Border>
 
         <!-- ===== Botões ===== -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="BtnRun" Content="▶  Executar Verificação"
                     Width="170" Height="30" Margin="0,0,8,0"
                     IsEnabled="False" IsDefault="True" Click="BtnRun_Click"/>

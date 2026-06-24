@@ -113,49 +113,39 @@ namespace NavisworksIfcExporter.Core
         }
 
         // -----------------------------------------------------------------------
-        // Run property checks
+        // Run property checks — called per-item from the async window loop
         // -----------------------------------------------------------------------
 
-        public static List<CheckResult> RunChecks(
-            Document doc, IList<CheckRule> rules,
-            bool onlyFailures = false,
-            Action<int, int>? progress = null)
+        // Returns the full list of geometry items (fast tree walk, called once)
+        public static List<ModelItem> GetGeometryItems(Document doc)
+            => WalkGeometry(doc.Models.RootItems).ToList();
+
+        // Processes a single item against all rules, appending to results list
+        public static void ProcessItem(ModelItem item, IList<CheckRule> rules,
+            List<CheckResult> results, bool onlyFailures)
         {
-            var results = new List<CheckResult>();
-            var allItems = WalkGeometry(doc.Models.RootItems).ToList();
-            int total = allItems.Count, done = 0;
+            string sourceFile = GetSourceFile(item);
 
-            foreach (var item in allItems)
+            foreach (var rule in rules)
             {
-                if (progress != null && done % 500 == 0) progress(done, total);
-                done++;
+                if (!string.IsNullOrWhiteSpace(rule.Disciplina) &&
+                    sourceFile.IndexOf(rule.Disciplina, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
 
-                string sourceFile = GetSourceFile(item);
+                var (resultado, valor) = CheckProperty(item, rule.Categoria, rule.Propriedade);
 
-                foreach (var rule in rules)
-                {
-                    // Match Disciplina: if specified, source file must contain it
-                    if (!string.IsNullOrWhiteSpace(rule.Disciplina) &&
-                        sourceFile.IndexOf(rule.Disciplina, StringComparison.OrdinalIgnoreCase) < 0)
-                        continue;
+                if (onlyFailures && resultado == OK) continue;
 
-                    var (resultado, valor) = CheckProperty(item, rule.Categoria, rule.Propriedade);
-
-                    if (onlyFailures && resultado == OK) continue;
-
-                    results.Add(new CheckResult {
-                        Disciplina  = rule.Disciplina,
-                        SourceFile  = Path.GetFileName(sourceFile),
-                        Guid        = item.InstanceGuid.ToString(),
-                        Categoria   = rule.Categoria,
-                        Propriedade = rule.Propriedade,
-                        Valor       = valor,
-                        Resultado   = resultado,
-                    });
-                }
+                results.Add(new CheckResult {
+                    Disciplina  = rule.Disciplina,
+                    SourceFile  = Path.GetFileName(sourceFile),
+                    Guid        = item.InstanceGuid.ToString(),
+                    Categoria   = rule.Categoria,
+                    Propriedade = rule.Propriedade,
+                    Valor       = valor,
+                    Resultado   = resultado,
+                });
             }
-
-            return results;
         }
 
         // -----------------------------------------------------------------------

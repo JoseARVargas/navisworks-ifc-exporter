@@ -16,6 +16,7 @@
             <RowDefinition Height="Auto"/>  <!-- Cor -->
             <RowDefinition Height="Auto"/>  <!-- Transparência -->
             <RowDefinition Height="Auto"/>  <!-- Preview -->
+            <RowDefinition Height="Auto"/>  <!-- Barra de progresso -->
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>  <!-- Botões -->
         </Grid.RowDefinitions>
@@ -86,8 +87,21 @@
                   Margin="2,6,0,0" FontSize="11"
                   Checked="ChkLivePreview_Changed" Unchecked="ChkLivePreview_Changed"/>
 
+        <!-- Barra de progresso -->
+        <Grid Grid.Row="4" x:Name="PanelProgress" Visibility="Collapsed" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="48"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="PrgBar" Height="14" Minimum="0" Maximum="100" Value="0"
+                         Background="#EEE" Foreground="#1976D2"/>
+            <TextBlock x:Name="TxtPct" Grid.Column="1" Text="0%"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontWeight="SemiBold" FontSize="10"/>
+        </Grid>
+
         <!-- Botões -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal"
+        <StackPanel Grid.Row="6" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button x:Name="BtnApply" Content="Aplicar" Width="90" Height="30"
                     Margin="0,0,6,0" IsDefault="True" Click="BtnApply_Click"/>

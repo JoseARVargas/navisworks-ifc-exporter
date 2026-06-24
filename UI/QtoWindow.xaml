@@ -20,6 +20,7 @@
             <RowDefinition Height="Auto"/>  <!-- Modo de mapeamento (tabs) -->
             <RowDefinition Height="Auto"/>  <!-- Modo de atualização + histórico -->
             <RowDefinition Height="*"/>     <!-- DataGrid de regras -->
+            <RowDefinition Height="Auto"/>  <!-- Barra de progresso -->
             <RowDefinition Height="110"/>   <!-- Log -->
             <RowDefinition Height="Auto"/>  <!-- Botões -->
         </Grid.RowDefinitions>
@@ -208,15 +209,28 @@
             </DataGrid>
         </Grid>
 
+        <!-- ===== Barra de progresso ===== -->
+        <Grid Grid.Row="3" x:Name="PanelProgress" Visibility="Collapsed" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="48"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="PrgBar" Height="18" Minimum="0" Maximum="100" Value="0"
+                         Background="#EEE" Foreground="#1976D2"/>
+            <TextBlock x:Name="TxtPct" Grid.Column="1" Text="0%"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontWeight="SemiBold" FontSize="11"/>
+        </Grid>
+
         <!-- ===== Log ===== -->
-        <GroupBox Grid.Row="3" Header="Resultado">
+        <GroupBox Grid.Row="4" Header="Resultado">
             <TextBox x:Name="TxtLog" IsReadOnly="True"
                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
                      Background="#F8F8F8" FontFamily="Consolas" FontSize="11"/>
         </GroupBox>
 
         <!-- ===== Botões ===== -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal"
+        <StackPanel Grid.Row="5" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button x:Name="BtnRun" Content="▶  Executar Auto Attach" Width="160" Height="30"
                     Margin="0,0,8,0" IsDefault="True" Click="BtnRun_Click"/>

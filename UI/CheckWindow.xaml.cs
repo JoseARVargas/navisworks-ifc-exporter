@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using NavisworksIfcExporter.Core;
 
@@ -11,6 +12,7 @@ namespace NavisworksIfcExporter.UI
     {
         private List<CheckRule>   _rules   = new();
         private List<CheckResult> _results = new();
+        private bool _processing;
 
         public CheckWindow()
         {
@@ -44,8 +46,8 @@ namespace NavisworksIfcExporter.UI
                 _results.Clear();
                 GridRules.ItemsSource   = _rules;
                 GridResults.ItemsSource = null;
-                BtnRun.IsEnabled    = _rules.Count > 0;
-                BtnExport.IsEnabled = false;
+                BtnRun.IsEnabled        = _rules.Count > 0;
+                BtnExport.IsEnabled     = false;
                 SetStatus($"{_rules.Count} regra(s) carregada(s). Clique em \"Executar Verificação\".");
             }
             catch (Exception ex)
@@ -72,41 +74,66 @@ namespace NavisworksIfcExporter.UI
         }
 
         // -----------------------------------------------------------------------
-        // Run
+        // Run (async — usa Task.Yield() para liberar a UI a cada 100 elementos)
         // -----------------------------------------------------------------------
 
-        private void BtnRun_Click(object sender, RoutedEventArgs e)
+        private async void BtnRun_Click(object sender, RoutedEventArgs e)
         {
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) { SetStatus("Nenhum documento aberto."); return; }
             if (_rules.Count == 0) { SetStatus("Carregue as regras antes de executar."); return; }
 
+            _processing         = true;
             BtnRun.IsEnabled    = false;
             BtnExport.IsEnabled = false;
             GridResults.ItemsSource = null;
-            SetStatus("Executando verificação... (aguarde)");
+
+            SetProgress(true, 0);
+            SetStatus("Coletando elementos do modelo...");
+            await Task.Yield();
 
             try
             {
                 bool onlyFail = ChkOnlyFailures.IsChecked == true;
-                _results = CheckService.RunChecks(doc, _rules, onlyFail,
-                    (done, total) => SetStatus($"Verificando... {done}/{total} elementos"));
+                var results = new List<CheckResult>();
+                int ok = 0, empty = 0, missing = 0;
 
-                GridResults.ItemsSource = _results;
+                // Collect all geometry items first (fast tree walk)
+                var allItems = CheckService.GetGeometryItems(doc);
+                int total = allItems.Count;
+                SetStatus($"Verificando {total} elemento(s)...");
+                await Task.Yield();
 
-                int ok      = 0, empty = 0, missing = 0;
-                foreach (var r in _results)
+                for (int i = 0; i < total; i++)
+                {
+                    CheckService.ProcessItem(allItems[i], _rules, results, onlyFail);
+
+                    // Yield to UI every 100 items → atualiza progresso e renderiza
+                    if (i % 100 == 0)
+                    {
+                        double pct = total > 0 ? (double)i / total * 100.0 : 0;
+                        SetProgress(true, pct);
+                        SetStatus($"Verificando... {i}/{total} elementos");
+                        await Task.Yield();
+                    }
+                }
+
+                _results = results;
+                GridResults.ItemsSource = results;
+
+                foreach (var r in results)
                 {
                     if      (r.Resultado == CheckService.OK)      ok++;
                     else if (r.Resultado == CheckService.EMPTY)   empty++;
                     else if (r.Resultado == CheckService.MISSING) missing++;
                 }
 
-                SetStatus(
-                    $"{_results.Count} linha(s) gerada(s)  |  " +
-                    $"✓ Preenchidas: {ok}  |  ⚠ Vazias: {empty}  |  ✗ Ausentes: {missing}");
+                string summary = results.Count == 0
+                    ? $"Nenhum resultado. {total} elemento(s) percorrido(s) — verifique se a coluna Disciplina corresponde ao Source File do modelo."
+                    : $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
 
-                BtnExport.IsEnabled = _results.Count > 0;
+                SetStatus(summary);
+                BtnExport.IsEnabled = results.Count > 0;
             }
             catch (Exception ex)
             {
@@ -116,7 +143,9 @@ namespace NavisworksIfcExporter.UI
             }
             finally
             {
+                SetProgress(false, 100);
                 BtnRun.IsEnabled = true;
+                _processing      = false;
             }
         }
 
@@ -127,12 +156,10 @@ namespace NavisworksIfcExporter.UI
         private void BtnExport_Click(object sender, RoutedEventArgs e)
         {
             if (_results.Count == 0) return;
-
             try
             {
                 string path = CheckService.ExportCsv(_results, TxtOutputDir.Text);
                 SetStatus($"CSV exportado: {path}");
-
                 if (MessageBox.Show($"Arquivo exportado:\n{path}\n\nAbrir pasta?",
                         "Exportação concluída", MessageBoxButton.YesNo,
                         MessageBoxImage.Information) == MessageBoxResult.Yes)
@@ -145,8 +172,28 @@ namespace NavisworksIfcExporter.UI
             }
         }
 
-        private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+        private void BtnClose_Click(object sender, RoutedEventArgs e)
+        {
+            if (_processing)
+            {
+                MessageBox.Show("Aguarde o término da verificação antes de fechar.",
+                    "Em processamento", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            Close();
+        }
+
+        // -----------------------------------------------------------------------
+        // Helpers
+        // -----------------------------------------------------------------------
 
         private void SetStatus(string msg) => TxtStatus.Text = msg;
+
+        private void SetProgress(bool visible, double value)
+        {
+            PanelProgress.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            PrgBar.Value  = value;
+            TxtPct.Text   = $"{(int)value}%";
+        }
     }
 }

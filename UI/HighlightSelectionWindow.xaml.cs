@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using Autodesk.Navisworks.Api;
@@ -46,7 +47,7 @@ namespace NavisworksIfcExporter.UI
         private void BtnPickColor_Click(object sender, RoutedEventArgs e)
             => OpenColorDialog();
 
-        private void OpenColorDialog()
+        private async void OpenColorDialog()
         {
             var dlg = new System.Windows.Forms.ColorDialog
             {
@@ -63,11 +64,11 @@ namespace NavisworksIfcExporter.UI
                 var c = dlg.Color;
                 _pickedColor = System.Windows.Media.Color.FromRgb(c.R, c.G, c.B);
                 UpdateSwatch();
-                if (ChkLivePreview.IsChecked == true && _overrideActive) ApplyOverride();
+                if (ChkLivePreview.IsChecked == true && _overrideActive) await ApplyOverrideAsync();
             }
         }
 
-        private void BtnPreset_Click(object sender, RoutedEventArgs e)
+        private async void BtnPreset_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not System.Windows.Controls.Button btn) return;
             var parts = (btn.Tag as string)?.Split(',');
@@ -77,7 +78,7 @@ namespace NavisworksIfcExporter.UI
                 byte.Parse(parts[1].Trim()),
                 byte.Parse(parts[2].Trim()));
             UpdateSwatch();
-            if (ChkLivePreview.IsChecked == true && _overrideActive) ApplyOverride();
+            if (ChkLivePreview.IsChecked == true && _overrideActive) await ApplyOverrideAsync();
         }
 
         private void UpdateSwatch() =>
@@ -87,23 +88,23 @@ namespace NavisworksIfcExporter.UI
         // Transparency slider
         // -----------------------------------------------------------------------
 
-        private void SliderTransp_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        private async void SliderTransp_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (TxtTranspPct == null) return;
             TxtTranspPct.Text = $"{(int)SliderTransp.Value}%";
-            if (ChkLivePreview?.IsChecked == true && _overrideActive) ApplyOverride();
+            if (ChkLivePreview?.IsChecked == true && _overrideActive) await ApplyOverrideAsync();
         }
 
-        private void ChkLivePreview_Changed(object sender, RoutedEventArgs e)
+        private async void ChkLivePreview_Changed(object sender, RoutedEventArgs e)
         {
-            if (ChkLivePreview.IsChecked == true && _overrideActive) ApplyOverride();
+            if (ChkLivePreview.IsChecked == true && _overrideActive) await ApplyOverrideAsync();
         }
 
         // -----------------------------------------------------------------------
         // Apply / Restore
         // -----------------------------------------------------------------------
 
-        private void BtnApply_Click(object sender, RoutedEventArgs e)
+        private async void BtnApply_Click(object sender, RoutedEventArgs e)
         {
             RefreshStatus();
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
@@ -117,31 +118,57 @@ namespace NavisworksIfcExporter.UI
                 return;
             }
 
-            ApplyOverride();
+            BtnApply.IsEnabled = false;
+            await ApplyOverrideAsync();
+            BtnApply.IsEnabled = true;
         }
 
-        private void ApplyOverride()
+        private async Task ApplyOverrideAsync()
         {
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) return;
 
             try
             {
+                SetProgress(true, 0);
                 doc.Models.ResetAllTemporaryMaterials();
 
-                // Expand selection: selected items + all their descendants
-                // HashSet<ModelItem> uses native-handle equality (same as FbxExportWindow)
+                // Fase 1: expandir seleção com todos os descendentes
+                TxtStatus.Text = "Expandindo seleção...";
                 var covered = new HashSet<ModelItem>();
-                foreach (var sel in doc.CurrentSelection.SelectedItems)
-                    foreach (var desc in WalkAll(new[] { sel }))
+                var selList = doc.CurrentSelection.SelectedItems.ToList();
+                for (int i = 0; i < selList.Count; i++)
+                {
+                    foreach (var desc in WalkAll(new[] { selList[i] }))
                         covered.Add(desc);
+
+                    if (i % 10 == 0)
+                    {
+                        SetProgress(true, selList.Count > 0 ? (double)i / selList.Count * 40 : 0);
+                        await Task.Yield();
+                    }
+                }
 
                 if (covered.Count == 0) { TxtStatus.Text = "Nenhum elemento coberto pela seleção."; return; }
 
-                // Geometry items NOT covered by selection
-                var unselected = WalkGeometry(doc.Models.RootItems)
-                    .Where(item => !covered.Contains(item))
-                    .ToList();
+                // Fase 2: coletar todos os elementos geométricos não cobertos
+                TxtStatus.Text = "Coletando elementos não selecionados...";
+                SetProgress(true, 40);
+                await Task.Yield();
+
+                var allGeom = WalkGeometry(doc.Models.RootItems).ToList();
+                var unselected = new List<ModelItem>(allGeom.Count);
+
+                for (int i = 0; i < allGeom.Count; i++)
+                {
+                    if (!covered.Contains(allGeom[i])) unselected.Add(allGeom[i]);
+
+                    if (i % 200 == 0)
+                    {
+                        SetProgress(true, 40 + (allGeom.Count > 0 ? (double)i / allGeom.Count * 50 : 0));
+                        await Task.Yield();
+                    }
+                }
 
                 if (unselected.Count == 0)
                 {
@@ -149,13 +176,17 @@ namespace NavisworksIfcExporter.UI
                     return;
                 }
 
+                // Fase 3: aplicar overrides
+                SetProgress(true, 90);
+                TxtStatus.Text = "Aplicando overrides...";
+                await Task.Yield();
+
                 double r = _pickedColor.R / 255.0;
                 double g = _pickedColor.G / 255.0;
                 double b = _pickedColor.B / 255.0;
-                double transparency = SliderTransp.Value / 100.0;
 
                 doc.Models.OverrideTemporaryColor(unselected, new NwColor(r, g, b));
-                doc.Models.OverrideTemporaryTransparency(unselected, transparency);
+                doc.Models.OverrideTemporaryTransparency(unselected, SliderTransp.Value / 100.0);
 
                 _overrideActive      = true;
                 BtnRestore.IsEnabled = true;
@@ -166,6 +197,17 @@ namespace NavisworksIfcExporter.UI
                 MessageBox.Show($"Erro ao aplicar realce:\n{ex.Message}", "Erro",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            finally
+            {
+                SetProgress(false, 100);
+            }
+        }
+
+        private void SetProgress(bool visible, double value)
+        {
+            PanelProgress.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            PrgBar.Value = value;
+            TxtPct.Text  = $"{(int)value}%";
         }
 
         private void BtnRestore_Click(object sender, RoutedEventArgs e)

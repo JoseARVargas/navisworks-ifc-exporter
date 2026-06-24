@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Autodesk.Navisworks.Api;
 using Autodesk.Navisworks.Api.Interop;
 using Autodesk.Navisworks.Api.Takeoff;
@@ -231,32 +233,29 @@ namespace NavisworksIfcExporter.Core
         }
 
         // -----------------------------------------------------------------------
-        // Main: run SearchSet-based mapping
+        // Main: run SearchSet-based mapping (async com progresso)
         // -----------------------------------------------------------------------
 
-        public static QtoRunResult RunSearchSetMapping(
-            Document doc,
-            IList<QtoSearchSetRule> rules,
-            QtoUpdateMode mode,
-            List<QtoItemInfo> items)
+        public static async Task<QtoRunResult> RunSearchSetMappingAsync(
+            Document doc, IList<QtoSearchSetRule> rules, QtoUpdateMode mode,
+            List<QtoItemInfo> items, Action<int, int>? progress = null)
         {
-            var result = new QtoRunResult();
+            var result  = new QtoRunResult();
             var takeoff = DocumentExtensions.GetTakeoff(doc);
             if (!takeoff.HasDatabaseInitialized) { result.Errors.Add("QTO não inicializado."); return result; }
 
-            var seen       = new HashSet<Guid>();
-            var mappedSet  = new HashSet<Guid>();
+            var seen      = new HashSet<Guid>();
+            var mappedSet = new HashSet<Guid>();
+            int done = 0, total = rules.Count;
 
             foreach (var rule in rules)
             {
-                long rowId = rule.ItemRowId > 0 ? rule.ItemRowId : ResolveItemRowId(items, rule.ItemCode);
-                if (rowId <= 0)
-                {
-                    result.Errors.Add($"Item QTO não encontrado: \"{rule.ItemCode}\"");
-                    continue;
-                }
+                progress?.Invoke(done++, total);
+                await Task.Yield();
 
-                // Resolve SearchSet elements
+                long rowId = rule.ItemRowId > 0 ? rule.ItemRowId : ResolveItemRowId(items, rule.ItemCode);
+                if (rowId <= 0) { result.Errors.Add($"Item QTO não encontrado: \"{rule.ItemCode}\""); continue; }
+
                 var set = FindSet(doc, rule.SetName);
                 if (set == null) { result.Errors.Add($"Set não encontrado: \"{rule.SetName}\""); continue; }
 
@@ -265,41 +264,44 @@ namespace NavisworksIfcExporter.Core
                     if (seen.Add(item.InstanceGuid)) elements.Add(item);
 
                 var (att, dup, err) = AttachToItem(takeoff, rowId, elements, mode);
-                result.Mapped    += att;
+                result.Mapped     += att;
                 result.Duplicates += dup;
                 if (err > 0) result.Errors.Add($"[{rule.ItemCode}] {err} erro(s) ao vincular.");
-
                 foreach (var e in elements) { mappedSet.Add(e.InstanceGuid); result.MappedItems.Add(e); }
             }
 
-            // Collect unmapped elements
-            foreach (var item in IterateAllModelItems(doc))
-                if (!mappedSet.Contains(item.InstanceGuid)) result.UnmappedItems.Add(item);
+            // Collect unmapped (iterate all geometry items with yield every 200)
+            var allGeom = IterateAllModelItems(doc).ToList();
+            for (int i = 0; i < allGeom.Count; i++)
+            {
+                if (!mappedSet.Contains(allGeom[i].InstanceGuid)) result.UnmappedItems.Add(allGeom[i]);
+                if (i % 200 == 0) { progress?.Invoke(total, total); await Task.Yield(); }
+            }
 
             result.Unmapped = result.UnmappedItems.Count;
             return result;
         }
 
         // -----------------------------------------------------------------------
-        // Main: run Property-value-based mapping
+        // Main: run Property-value-based mapping (async com progresso)
         // -----------------------------------------------------------------------
 
-        public static QtoRunResult RunPropertyMapping(
-            Document doc,
-            IList<QtoPropertyRule> rules,
-            QtoUpdateMode mode,
-            List<QtoItemInfo> items)
+        public static async Task<QtoRunResult> RunPropertyMappingAsync(
+            Document doc, IList<QtoPropertyRule> rules, QtoUpdateMode mode,
+            List<QtoItemInfo> items, Action<int, int>? progress = null)
         {
-            var result  = new QtoRunResult();
-            var takeoff = DocumentExtensions.GetTakeoff(doc);
+            var result      = new QtoRunResult();
+            var takeoff     = DocumentExtensions.GetTakeoff(doc);
             if (!takeoff.HasDatabaseInitialized) { result.Errors.Add("QTO não inicializado."); return result; }
 
-            // Build per-item element lists based on property value
-            var byItem   = new Dictionary<long, List<ModelItem>>();
+            var byItem      = new Dictionary<long, List<ModelItem>>();
             var mappedGuids = new HashSet<Guid>();
+            var allGeom     = IterateAllModelItems(doc).ToList();
+            int total       = allGeom.Count;
 
-            foreach (var modelItem in IterateAllModelItems(doc))
+            for (int i = 0; i < total; i++)
             {
+                var modelItem = allGeom[i];
                 if (!modelItem.HasGeometry) continue;
 
                 foreach (var rule in rules)
@@ -314,21 +316,23 @@ namespace NavisworksIfcExporter.Core
                     if (!byItem.TryGetValue(rowId, out var list)) byItem[rowId] = list = new List<ModelItem>();
                     list.Add(modelItem);
                     mappedGuids.Add(modelItem.InstanceGuid);
-                    break; // first matching rule wins per element
+                    break;
                 }
+
+                if (i % 200 == 0) { progress?.Invoke(i, total); await Task.Yield(); }
             }
 
             foreach (var kvp in byItem)
             {
                 var (att, dup, err) = AttachToItem(takeoff, kvp.Key, kvp.Value, mode);
-                result.Mapped    += att;
+                result.Mapped     += att;
                 result.Duplicates += dup;
                 result.MappedItems.AddRange(kvp.Value);
                 if (err > 0) result.Errors.Add($"[rowId={kvp.Key}] {err} erro(s) ao vincular.");
             }
 
-            foreach (var item in IterateAllModelItems(doc))
-                if (!mappedGuids.Contains(item.InstanceGuid)) result.UnmappedItems.Add(item);
+            for (int i = 0; i < allGeom.Count; i++)
+                if (!mappedGuids.Contains(allGeom[i].InstanceGuid)) result.UnmappedItems.Add(allGeom[i]);
 
             result.Unmapped = result.UnmappedItems.Count;
             return result;

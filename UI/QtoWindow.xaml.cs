@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Autodesk.Navisworks.Api;
@@ -202,7 +203,7 @@ namespace NavisworksIfcExporter.UI
         // Run
         // -----------------------------------------------------------------------
 
-        private void BtnRun_Click(object sender, RoutedEventArgs e)
+        private async void BtnRun_Click(object sender, RoutedEventArgs e)
         {
             var doc = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (doc == null) { AppendLog("Nenhum documento aberto."); return; }
@@ -216,12 +217,11 @@ namespace NavisworksIfcExporter.UI
                 return;
             }
 
-            bool isSetMode   = TabMode.SelectedIndex == 0;
-            var  updateMode  = RbClearReattach.IsChecked == true
-                               ? QtoUpdateMode.ClearAndReattach
-                               : QtoUpdateMode.AppendOnly;
+            bool isSetMode  = TabMode.SelectedIndex == 0;
+            var  updateMode = RbClearReattach.IsChecked == true
+                              ? QtoUpdateMode.ClearAndReattach
+                              : QtoUpdateMode.AppendOnly;
 
-            // Export history CSV before clearing
             if (ChkExportHistory.IsChecked == true && updateMode == QtoUpdateMode.ClearAndReattach)
             {
                 try
@@ -237,29 +237,31 @@ namespace NavisworksIfcExporter.UI
 
             BtnRun.IsEnabled = false;
             TxtLog.Clear();
+            SetProgress(true, 0);
 
-            QtoRunResult result;
             try
             {
+                QtoRunResult result;
+
                 if (isSetMode)
                 {
                     var rules = _setRules
                         .Where(r => !string.IsNullOrEmpty(r.SetName) && !string.IsNullOrEmpty(r.ItemCode))
                         .Select(r => new QtoSearchSetRule {
-                            SetName  = r.SetName,
-                            ItemCode = r.ItemCode,
-                            ItemName = r.ItemName,
+                            SetName   = r.SetName,
+                            ItemCode  = r.ItemCode,
+                            ItemName  = r.ItemName,
                             ItemRowId = r.ItemRowId,
                         }).ToList();
 
                     if (rules.Count == 0)
                     {
                         AppendLog("Nenhuma regra de mapeamento definida.");
-                        BtnRun.IsEnabled = true;
                         return;
                     }
 
-                    result = QtoService.RunSearchSetMapping(doc, rules, updateMode, _qtoItems);
+                    result = await QtoService.RunSearchSetMappingAsync(doc, rules, updateMode, _qtoItems,
+                        (done, total) => SetProgress(true, total > 0 ? (double)done / total * 100 : 0));
                 }
                 else
                 {
@@ -280,37 +282,43 @@ namespace NavisworksIfcExporter.UI
                     if (rules.Count == 0)
                     {
                         AppendLog("Nenhuma regra de propriedade definida.");
-                        BtnRun.IsEnabled = true;
                         return;
                     }
 
-                    result = QtoService.RunPropertyMapping(doc, rules, updateMode, _qtoItems);
+                    result = await QtoService.RunPropertyMappingAsync(doc, rules, updateMode, _qtoItems,
+                        (done, total) => SetProgress(true, total > 0 ? (double)done / total * 100 : 0));
                 }
+
+                AppendLog($"Mapeados:      {result.Mapped} elemento(s)");
+                AppendLog($"Não mapeados:  {result.Unmapped} elemento(s)");
+                if (result.Duplicates > 0)
+                    AppendLog($"Ignorados (já vinculados): {result.Duplicates}");
+                foreach (var err in result.Errors)
+                    AppendLog($"⚠ {err}");
+
+                try
+                {
+                    QtoService.UpdateSelectionSets(doc, result.MappedItems, result.UnmappedItems);
+                    AppendLog("Sets de seleção atualizados.");
+                }
+                catch (Exception ex) { AppendLog($"Aviso: não foi possível atualizar sets: {ex.Message}"); }
             }
             catch (Exception ex)
             {
                 AppendLog($"ERRO: {ex.Message}");
-                BtnRun.IsEnabled = true;
-                return;
             }
-
-            // Report
-            AppendLog($"Mapeados:      {result.Mapped} elemento(s)");
-            AppendLog($"Não mapeados:  {result.Unmapped} elemento(s)");
-            if (result.Duplicates > 0)
-                AppendLog($"Ignorados (já vinculados): {result.Duplicates}");
-            foreach (var err in result.Errors)
-                AppendLog($"⚠ {err}");
-
-            // Update selection sets
-            try
+            finally
             {
-                QtoService.UpdateSelectionSets(doc, result.MappedItems, result.UnmappedItems);
-                AppendLog("Sets de seleção atualizados: \"QTO / Elementos mapeados\" e \"QTO / Elementos não mapeados\".");
+                BtnRun.IsEnabled = true;
+                SetProgress(false, 100);
             }
-            catch (Exception ex) { AppendLog($"Aviso: não foi possível atualizar sets: {ex.Message}"); }
+        }
 
-            BtnRun.IsEnabled = true;
+        private void SetProgress(bool visible, double value)
+        {
+            PanelProgress.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            PrgBar.Value = value;
+            TxtPct.Text  = $"{(int)value}%";
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
