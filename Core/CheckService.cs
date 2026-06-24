@@ -116,16 +116,35 @@ namespace NavisworksIfcExporter.Core
         // Run property checks — called per-item from the async window loop
         // -----------------------------------------------------------------------
 
-        // Returns the full list of geometry items (fast tree walk, called once)
-        public static List<ModelItem> GetGeometryItems(Document doc)
-            => WalkGeometry(doc.Models.RootItems).ToList();
+        // Returns all geometry items paired with their source file name.
+        // Source file is taken from doc.Models (always reliable) and propagated
+        // down the tree — avoids relying on ModelItem.Model which only works on root items.
+        public static List<(ModelItem item, string sourceFile)> GetGeometryItems(Document doc)
+        {
+            var result = new List<(ModelItem, string)>();
+            foreach (var model in doc.Models)
+            {
+                string src = model.SourceFileName ?? model.FileName ?? "";
+                CollectGeometry(model.RootItem.Children, src, result);
+            }
+            return result;
+        }
+
+        private static void CollectGeometry(
+            IEnumerable<ModelItem> items, string sourceFile,
+            List<(ModelItem, string)> result)
+        {
+            foreach (var item in items)
+            {
+                if (item.HasGeometry) result.Add((item, sourceFile));
+                CollectGeometry(item.Children, sourceFile, result);
+            }
+        }
 
         // Processes a single item against all rules, appending to results list
-        public static void ProcessItem(ModelItem item, IList<CheckRule> rules,
-            List<CheckResult> results, bool onlyFailures)
+        public static void ProcessItem(ModelItem item, string sourceFile,
+            IList<CheckRule> rules, List<CheckResult> results, bool onlyFailures)
         {
-            string sourceFile = GetSourceFile(item);
-
             foreach (var rule in rules)
             {
                 if (!string.IsNullOrWhiteSpace(rule.Disciplina) &&
@@ -194,12 +213,6 @@ namespace NavisworksIfcExporter.Core
             }
 
             return (MISSING, "");
-        }
-
-        private static string GetSourceFile(ModelItem item)
-        {
-            try { return item.Model?.SourceFileName ?? item.Model?.FileName ?? ""; }
-            catch { return ""; }
         }
 
         private static IEnumerable<ModelItem> WalkGeometry(IEnumerable<ModelItem> items)

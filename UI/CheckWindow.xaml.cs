@@ -99,7 +99,7 @@ namespace NavisworksIfcExporter.UI
                 var results = new List<CheckResult>();
                 int ok = 0, empty = 0, missing = 0;
 
-                // Collect all geometry items first (fast tree walk)
+                // Collect all geometry items with their source files (from doc.Models)
                 var allItems = CheckService.GetGeometryItems(doc);
                 int total = allItems.Count;
                 SetStatus($"Verificando {total} elemento(s)...");
@@ -107,7 +107,8 @@ namespace NavisworksIfcExporter.UI
 
                 for (int i = 0; i < total; i++)
                 {
-                    CheckService.ProcessItem(allItems[i], _rules, results, onlyFail);
+                    var (item, src) = allItems[i];
+                    CheckService.ProcessItem(item, src, _rules, results, onlyFail);
 
                     // Yield to UI every 100 items → atualiza progresso e renderiza
                     if (i % 100 == 0)
