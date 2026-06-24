@@ -178,12 +178,7 @@ namespace NavisworksIfcExporter.UI
 
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
-        private void Window_Closed(object sender, EventArgs e)
-        {
-            if (_overrideActive)
-                Autodesk.Navisworks.Api.Application.ActiveDocument
-                    ?.Models.ResetAllTemporaryMaterials();
-        }
+        private void Window_Closed(object sender, EventArgs e) { }
 
         // -----------------------------------------------------------------------
         // Helpers
