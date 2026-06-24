@@ -171,7 +171,9 @@ namespace NavisworksIfcExporter.Core
                 results.Add(new CheckResult {
                     Disciplina  = rule.Disciplina,
                     SourceFile  = Path.GetFileName(sourceFile),
-                    Guid        = item.InstanceGuid.ToString(),
+                    Guid        = item.InstanceGuid != Guid.Empty
+                                      ? item.InstanceGuid.ToString()
+                                      : item.DisplayName ?? "",
                     Categoria   = rule.Categoria,
                     Propriedade = rule.Propriedade,
                     Valor       = valor,
@@ -191,7 +193,7 @@ namespace NavisworksIfcExporter.Core
             Directory.CreateDirectory(outputDir);
 
             using var w = new StreamWriter(path, false, new UTF8Encoding(true));
-            w.WriteLine("Disciplina;Source File;GUID;Categoria;Propriedade;Valor;Resultado");
+            w.WriteLine("Disciplina;Source File;Identificador;Categoria;Propriedade;Valor;Resultado");
             foreach (var r in results)
             {
                 w.WriteLine(string.Join(";", new[]

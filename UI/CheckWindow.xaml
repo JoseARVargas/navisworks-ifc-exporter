@@ -109,7 +109,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Disciplina"  Binding="{Binding Disciplina}"  Width="80"/>
                     <DataGridTextColumn Header="Source File" Binding="{Binding SourceFile}"  Width="150"/>
-                    <DataGridTextColumn Header="GUID"        Binding="{Binding Guid}"        Width="240"/>
+                    <DataGridTextColumn Header="Identificador" Binding="{Binding Guid}"      Width="240"/>
                     <DataGridTextColumn Header="Categoria"   Binding="{Binding Categoria}"   Width="120"/>
                     <DataGridTextColumn Header="Propriedade" Binding="{Binding Propriedade}" Width="130"/>
                     <DataGridTextColumn Header="Valor atual" Binding="{Binding Valor}"       Width="120"/>
