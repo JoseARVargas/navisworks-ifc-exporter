@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Autodesk.Navisworks.Api;
 using NavisworksIfcExporter.Core;
 
@@ -261,7 +262,10 @@ namespace NavisworksIfcExporter.UI
                     }
 
                     result = await QtoService.RunSearchSetMappingAsync(doc, rules, updateMode, _qtoItems,
-                        (done, total) => SetProgress(true, total > 0 ? (double)done / total * 100 : 0));
+                        async (done, total) => {
+                            SetProgress(true, total > 0 ? (double)done / total * 100 : 0);
+                            await Dispatcher.Yield(DispatcherPriority.Background);
+                        });
                 }
                 else
                 {
@@ -286,7 +290,10 @@ namespace NavisworksIfcExporter.UI
                     }
 
                     result = await QtoService.RunPropertyMappingAsync(doc, rules, updateMode, _qtoItems,
-                        (done, total) => SetProgress(true, total > 0 ? (double)done / total * 100 : 0));
+                        async (done, total) => {
+                            SetProgress(true, total > 0 ? (double)done / total * 100 : 0);
+                            await Dispatcher.Yield(DispatcherPriority.Background);
+                        });
                 }
 
                 AppendLog($"Mapeados:      {result.Mapped} elemento(s)");

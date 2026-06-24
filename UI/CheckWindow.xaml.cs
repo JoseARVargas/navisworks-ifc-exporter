@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using NavisworksIfcExporter.Core;
 
 namespace NavisworksIfcExporter.UI
@@ -90,7 +91,7 @@ namespace NavisworksIfcExporter.UI
 
             SetProgress(true, 0);
             SetStatus("Coletando elementos do modelo...");
-            await Task.Yield();
+            await Dispatcher.Yield(DispatcherPriority.Background);
 
             try
             {
@@ -102,7 +103,7 @@ namespace NavisworksIfcExporter.UI
                 var allItems = CheckService.GetGeometryItems(doc);
                 int total = allItems.Count;
                 SetStatus($"Verificando {total} elemento(s)...");
-                await Task.Yield();
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
                 for (int i = 0; i < total; i++)
                 {
@@ -114,7 +115,7 @@ namespace NavisworksIfcExporter.UI
                         double pct = total > 0 ? (double)i / total * 100.0 : 0;
                         SetProgress(true, pct);
                         SetStatus($"Verificando... {i}/{total} elementos");
-                        await Task.Yield();
+                        await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
 

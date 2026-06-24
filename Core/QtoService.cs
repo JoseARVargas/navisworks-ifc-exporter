@@ -238,7 +238,7 @@ namespace NavisworksIfcExporter.Core
 
         public static async Task<QtoRunResult> RunSearchSetMappingAsync(
             Document doc, IList<QtoSearchSetRule> rules, QtoUpdateMode mode,
-            List<QtoItemInfo> items, Action<int, int>? progress = null)
+            List<QtoItemInfo> items, Func<int, int, Task>? progress = null)
         {
             var result  = new QtoRunResult();
             var takeoff = DocumentExtensions.GetTakeoff(doc);
@@ -250,8 +250,7 @@ namespace NavisworksIfcExporter.Core
 
             foreach (var rule in rules)
             {
-                progress?.Invoke(done++, total);
-                await Task.Yield();
+                if (progress != null) await progress(done++, total);
 
                 long rowId = rule.ItemRowId > 0 ? rule.ItemRowId : ResolveItemRowId(items, rule.ItemCode);
                 if (rowId <= 0) { result.Errors.Add($"Item QTO não encontrado: \"{rule.ItemCode}\""); continue; }
@@ -275,7 +274,7 @@ namespace NavisworksIfcExporter.Core
             for (int i = 0; i < allGeom.Count; i++)
             {
                 if (!mappedSet.Contains(allGeom[i].InstanceGuid)) result.UnmappedItems.Add(allGeom[i]);
-                if (i % 200 == 0) { progress?.Invoke(total, total); await Task.Yield(); }
+                if (i % 200 == 0 && progress != null) await progress(total, total);
             }
 
             result.Unmapped = result.UnmappedItems.Count;
@@ -288,7 +287,7 @@ namespace NavisworksIfcExporter.Core
 
         public static async Task<QtoRunResult> RunPropertyMappingAsync(
             Document doc, IList<QtoPropertyRule> rules, QtoUpdateMode mode,
-            List<QtoItemInfo> items, Action<int, int>? progress = null)
+            List<QtoItemInfo> items, Func<int, int, Task>? progress = null)
         {
             var result      = new QtoRunResult();
             var takeoff     = DocumentExtensions.GetTakeoff(doc);
@@ -319,7 +318,7 @@ namespace NavisworksIfcExporter.Core
                     break;
                 }
 
-                if (i % 200 == 0) { progress?.Invoke(i, total); await Task.Yield(); }
+                if (i % 200 == 0 && progress != null) await progress(i, total);
             }
 
             foreach (var kvp in byItem)

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Autodesk.Navisworks.Api;
 using NwColor = Autodesk.Navisworks.Api.Color;
 
@@ -145,7 +146,7 @@ namespace NavisworksIfcExporter.UI
                     if (i % 10 == 0)
                     {
                         SetProgress(true, selList.Count > 0 ? (double)i / selList.Count * 40 : 0);
-                        await Task.Yield();
+                        await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
 
@@ -154,7 +155,7 @@ namespace NavisworksIfcExporter.UI
                 // Fase 2: coletar todos os elementos geométricos não cobertos
                 TxtStatus.Text = "Coletando elementos não selecionados...";
                 SetProgress(true, 40);
-                await Task.Yield();
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
                 var allGeom = WalkGeometry(doc.Models.RootItems).ToList();
                 var unselected = new List<ModelItem>(allGeom.Count);
@@ -166,7 +167,7 @@ namespace NavisworksIfcExporter.UI
                     if (i % 200 == 0)
                     {
                         SetProgress(true, 40 + (allGeom.Count > 0 ? (double)i / allGeom.Count * 50 : 0));
-                        await Task.Yield();
+                        await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
 
@@ -179,7 +180,7 @@ namespace NavisworksIfcExporter.UI
                 // Fase 3: aplicar overrides
                 SetProgress(true, 90);
                 TxtStatus.Text = "Aplicando overrides...";
-                await Task.Yield();
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
                 double r = _pickedColor.R / 255.0;
                 double g = _pickedColor.G / 255.0;
