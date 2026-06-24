@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 
 namespace NavisworksIfcExporter.Core
@@ -32,6 +33,11 @@ namespace NavisworksIfcExporter.Core
             Write("ERROR", full);
         }
 
+        // Logs elapsed time + optional throughput when disposed.
+        // Usage: using (PluginLogger.Perf("fase", itemCount)) { ... }
+        public static PerfScope Perf(string label, int? itemCount = null)
+            => new PerfScope(label, itemCount);
+
         public static void Clear()
         {
             try { lock (_lock) File.Delete(_logPath); } catch { }
@@ -45,7 +51,42 @@ namespace NavisworksIfcExporter.Core
                     File.AppendAllText(_logPath,
                         $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {msg}{Environment.NewLine}");
             }
-            catch { /* never crash the plugin over logging */ }
+            catch { }
+        }
+
+        // -----------------------------------------------------------------------
+
+        internal sealed class PerfScope : IDisposable
+        {
+            private readonly string _label;
+            private readonly int? _itemCount;
+            private readonly Stopwatch _sw = Stopwatch.StartNew();
+            private bool _disposed;
+
+            internal PerfScope(string label, int? itemCount)
+            {
+                _label     = label;
+                _itemCount = itemCount;
+                Write("PERF ", $">> {label} — início");
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _sw.Stop();
+
+                long ms = _sw.ElapsedMilliseconds;
+                string throughput = (_itemCount.HasValue && ms > 0)
+                    ? $"  ({_itemCount.Value / (ms / 1000.0):N0} itens/s)"
+                    : "";
+
+                Write("PERF ", $"<< {_label} — {ms} ms{throughput}");
+            }
+
+            // Mid-scope checkpoint without stopping the timer
+            public void Mark(string note)
+                => Write("PERF ", $"   {_label} [{_sw.ElapsedMilliseconds} ms] {note}");
         }
     }
 }

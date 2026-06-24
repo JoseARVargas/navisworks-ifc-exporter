@@ -121,15 +121,20 @@ namespace NavisworksIfcExporter.Core
         // down the tree — avoids relying on ModelItem.Model which only works on root items.
         public static List<(ModelItem item, string sourceFile)> GetGeometryItems(Document doc)
         {
+            using var perf = PluginLogger.Perf("GetGeometryItems");
+            PluginLogger.Info($"  {doc.Models.Count} model(s) no documento");
+
             var result = new List<(ModelItem, string)>();
-            PluginLogger.Info($"Check.GetGeometryItems: {doc.Models.Count} model(s) no documento");
             foreach (var model in doc.Models)
             {
                 string src = model.SourceFileName ?? model.FileName ?? "";
-                PluginLogger.Info($"  Model: SourceFileName=\"{model.SourceFileName}\" FileName=\"{model.FileName}\"");
+                int before = result.Count;
                 CollectGeometry(model.RootItem.Children, src, result);
+                PluginLogger.Info($"  Model \"{Path.GetFileName(src)}\": {result.Count - before} itens geométricos" +
+                                  $"  (SourceFileName=\"{model.SourceFileName}\"  FileName=\"{model.FileName}\")");
             }
-            PluginLogger.Info($"Check.GetGeometryItems: {result.Count} itens com geometria coletados");
+
+            perf.Mark($"{result.Count} itens coletados no total");
             return result;
         }
 

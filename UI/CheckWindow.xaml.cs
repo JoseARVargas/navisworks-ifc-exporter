@@ -92,7 +92,8 @@ namespace NavisworksIfcExporter.UI
             SetProgress(true, 0);
             SetStatus("Coletando elementos do modelo...");
             NavisworksIfcExporter.Core.PluginLogger.Clear();
-            NavisworksIfcExporter.Core.PluginLogger.Info($"Check iniciado. Regras: {_rules.Count}, SomenteErros: {ChkOnlyFailures.IsChecked}");
+            NavisworksIfcExporter.Core.PluginLogger.Info(
+                $"Check iniciado — Regras: {_rules.Count}  SomenteErros: {ChkOnlyFailures.IsChecked}");
             await Dispatcher.Yield(DispatcherPriority.Background);
 
             try
@@ -101,18 +102,22 @@ namespace NavisworksIfcExporter.UI
                 var results = new List<CheckResult>();
                 int ok = 0, empty = 0, missing = 0;
 
-                // Collect all geometry items with their source files (from doc.Models)
-                var allItems = CheckService.GetGeometryItems(doc);
+                // Fase 1: coletar itens geométricos
+                List<(Autodesk.Navisworks.Api.ModelItem, string)> allItems;
+                using (NavisworksIfcExporter.Core.PluginLogger.Perf("Fase1_ColetarItens"))
+                    allItems = CheckService.GetGeometryItems(doc);
+
                 int total = allItems.Count;
                 SetStatus($"Verificando {total} elemento(s)...");
                 await Dispatcher.Yield(DispatcherPriority.Background);
 
+                // Fase 2: verificar propriedades
+                using var perfCheck = NavisworksIfcExporter.Core.PluginLogger.Perf("Fase2_VerificarPropriedades", total);
                 for (int i = 0; i < total; i++)
                 {
                     var (item, src) = allItems[i];
                     CheckService.ProcessItem(item, src, _rules, results, onlyFail);
 
-                    // Yield to UI every 100 items → atualiza progresso e renderiza
                     if (i % 100 == 0)
                     {
                         double pct = total > 0 ? (double)i / total * 100.0 : 0;
@@ -121,6 +126,7 @@ namespace NavisworksIfcExporter.UI
                         await Dispatcher.Yield(DispatcherPriority.Background);
                     }
                 }
+                perfCheck.Dispose();
 
                 _results = results;
                 GridResults.ItemsSource = results;
@@ -148,7 +154,8 @@ namespace NavisworksIfcExporter.UI
                     summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
                 }
 
-                NavisworksIfcExporter.Core.PluginLogger.Info($"Check concluído: {summary}");
+                NavisworksIfcExporter.Core.PluginLogger.Info(
+                    $"Check concluído — {results.Count} resultado(s)  ✓{ok} ⚠{empty} ✗{missing}");
                 SetStatus(summary);
                 BtnExport.IsEnabled = results.Count > 0;
             }
