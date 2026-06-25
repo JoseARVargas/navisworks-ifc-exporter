@@ -1,0 +1,129 @@
+<Window x:Class="NavisworksIfcExporter.UI.IdsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Verificar IDS  |  PHD Eng. Digital"
+        Width="900" Height="640"
+        MinWidth="700" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <Style x:Key="IdsRow" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding StatusIcon}" Value="✓ PASS">
+                    <Setter Property="Background" Value="#E8F5E9"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusIcon}" Value="✗ FAIL">
+                    <Setter Property="Background" Value="#FFEBEE"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding StatusIcon}" Value="— N/A">
+                    <Setter Property="Background" Value="#F5F5F5"/>
+                    <Setter Property="Foreground" Value="#999"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Arquivo IDS -->
+            <RowDefinition Height="Auto"/>  <!-- Info do IDS carregado -->
+            <RowDefinition Height="Auto"/>  <!-- Opções -->
+            <RowDefinition Height="Auto"/>  <!-- Barra de progresso -->
+            <RowDefinition Height="*"/>     <!-- Grid de resultados -->
+            <RowDefinition Height="Auto"/>  <!-- Status -->
+            <RowDefinition Height="Auto"/>  <!-- Botões -->
+        </Grid.RowDefinitions>
+
+        <!-- Arquivo IDS -->
+        <GroupBox Grid.Row="0" Header="Arquivo IDS (.ids)" Padding="8,4" Margin="0,0,0,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="TxtFilePath" Grid.Column="0"
+                         Height="24" Padding="4,2" Margin="0,0,6,0"
+                         VerticalContentAlignment="Center" IsReadOnly="True"
+                         Background="#F8F8F8" FontSize="11"/>
+                <Button Grid.Column="1" Content="..." Width="28" Height="24"
+                        Margin="0,0,6,0" Click="BtnBrowse_Click"/>
+                <Button Grid.Column="2" x:Name="BtnLoad" Content="Carregar"
+                        Width="80" Height="24" IsEnabled="False"
+                        Click="BtnLoad_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Info do IDS carregado -->
+        <Border Grid.Row="1" x:Name="PanelIdsInfo" Visibility="Collapsed"
+                Background="#EEF3FF" BorderBrush="#B0C4DE" BorderThickness="1"
+                CornerRadius="3" Padding="10,6" Margin="0,0,0,4">
+            <TextBlock x:Name="TxtIdsInfo" FontSize="11" TextWrapping="Wrap"
+                       Foreground="#334"/>
+        </Border>
+
+        <!-- Opções -->
+        <GroupBox Grid.Row="2" Header="Opções" Padding="8,4" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal">
+                <CheckBox x:Name="ChkOnlyFailures"
+                          Content="Exibir apenas falhas (✗ FAIL)"
+                          IsChecked="True" VerticalAlignment="Center" Margin="0,0,32,0"/>
+                <TextBlock Text="Exportar para:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="TxtOutputDir" Width="260" Height="22"
+                         VerticalContentAlignment="Center" Padding="4,0" Margin="0,0,6,0"/>
+                <Button Content="..." Width="26" Height="22" Click="BtnOutputDir_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Barra de progresso -->
+        <Grid Grid.Row="3" x:Name="PanelProgress" Visibility="Collapsed" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="48"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="PrgBar" Height="18" Minimum="0" Maximum="100" Value="0"
+                         Background="#EEE" Foreground="#1976D2"/>
+            <TextBlock x:Name="TxtPct" Grid.Column="1" Text="0%"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontWeight="SemiBold" FontSize="11"/>
+        </Grid>
+
+        <!-- Grid de resultados -->
+        <DataGrid Grid.Row="4" x:Name="GridResults"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  IsReadOnly="True" SelectionMode="Extended"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  RowHeight="24" FontSize="11" BorderBrush="#CCC" BorderThickness="1"
+                  RowStyle="{StaticResource IdsRow}"
+                  Margin="0,0,0,4">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Status"       Binding="{Binding StatusIcon}"    Width="80"  MinWidth="70"/>
+                <DataGridTextColumn Header="Especificação" Binding="{Binding SpecName}"     Width="2*"  MinWidth="120"/>
+                <DataGridTextColumn Header="ID"           Binding="{Binding SpecId}"        Width="80"  MinWidth="50"/>
+                <DataGridTextColumn Header="Identificador" Binding="{Binding Identifier}"   Width="2*"  MinWidth="120"/>
+                <DataGridTextColumn Header="Source File"  Binding="{Binding SourceFile}"    Width="140" MinWidth="80"/>
+                <DataGridTextColumn Header="Motivo da Falha" Binding="{Binding FailureReason}" Width="3*" MinWidth="150"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Status -->
+        <Border Grid.Row="5" Background="#F0F4FF" BorderBrush="#C8D8F0"
+                BorderThickness="1" CornerRadius="3" Padding="10,5" Margin="0,0,0,6">
+            <TextBlock x:Name="TxtStatus" Text="Carregue um arquivo IDS para começar."
+                       FontSize="11" TextWrapping="Wrap" Foreground="#334"/>
+        </Border>
+
+        <!-- Botões -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="BtnRun" Content="▶  Verificar IDS" Width="130" Height="30"
+                    Margin="0,0,8,0" IsDefault="True" IsEnabled="False"
+                    Click="BtnRun_Click"/>
+            <Button x:Name="BtnExport" Content="Exportar CSV" Width="110" Height="30"
+                    Margin="0,0,8,0" IsEnabled="False" Click="BtnExport_Click"/>
+            <Button Content="Fechar" Width="80" Height="30"
+                    IsCancel="True" Click="BtnClose_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

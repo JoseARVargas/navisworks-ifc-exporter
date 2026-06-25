@@ -19,3 +19,8 @@ project.lock.json
 Thumbs.db
 .DS_Store
 logs/
+
+# Installer outputs (distribuídos via GitHub Releases, não no repo)
+installer/output/
+installer/assets/
+installer/*_build.iss

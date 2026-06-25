@@ -99,8 +99,13 @@ namespace NavisworksIfcExporter.UI
             try
             {
                 bool onlyFail = ChkOnlyFailures.IsChecked == true;
-                var results = new List<CheckResult>();
-                int ok = 0, empty = 0, missing = 0;
+                var results   = new List<CheckResult>();
+
+                // Contadores de resumo — acumulados independentemente do filtro
+                var byDisc = new Dictionary<string, (int ok, int empty, int missing)>(StringComparer.OrdinalIgnoreCase);
+                var bySrc  = new Dictionary<string, (int ok, int empty, int missing)>(StringComparer.OrdinalIgnoreCase);
+
+                CheckService.ResetRuleStats();
 
                 // Fase 1: coletar itens geométricos
                 List<(Autodesk.Navisworks.Api.ModelItem, string)> allItems;
@@ -116,7 +121,18 @@ namespace NavisworksIfcExporter.UI
                 for (int i = 0; i < total; i++)
                 {
                     var (item, src) = allItems[i];
-                    CheckService.ProcessItem(item, src, _rules, results, onlyFail);
+                    var itemResults = new List<CheckResult>();
+                    CheckService.ProcessItem(item, src, _rules, itemResults, onlyFailures: false);
+
+                    foreach (var r in itemResults)
+                    {
+                        // Acumula resumo (sempre, independente do filtro)
+                        Accumulate(byDisc, r.Disciplina, r.Resultado);
+                        Accumulate(bySrc,  r.SourceFile, r.Resultado);
+
+                        if (!onlyFail || r.Resultado != CheckService.OK)
+                            results.Add(r);
+                    }
 
                     if (i % 100 == 0)
                     {
@@ -131,15 +147,18 @@ namespace NavisworksIfcExporter.UI
                 _results = results;
                 GridResults.ItemsSource = results;
 
-                foreach (var r in results)
-                {
-                    if      (r.Resultado == CheckService.OK)             ok++;
-                    else if (r.Resultado == CheckService.EMPTY)          empty++;
-                    else if (r.Resultado == CheckService.MISSING)        missing++;
-                }
+                // Popula grids de resumo
+                GridSummaryDisc.ItemsSource = BuildSummary(byDisc);
+                GridSummarySrc.ItemsSource  = BuildSummary(bySrc);
+
+                int okTotal      = byDisc.Values.Sum(v => v.ok);
+                int emptyTotal   = byDisc.Values.Sum(v => v.empty);
+                int missingTotal = byDisc.Values.Sum(v => v.missing);
+                int totalChecked = okTotal + emptyTotal + missingTotal;
+                int pctGlobal    = totalChecked > 0 ? okTotal * 100 / totalChecked : 0;
 
                 string summary;
-                if (results.Count == 0)
+                if (totalChecked == 0)
                 {
                     var srcFiles = CheckService.GetDistinctSourceFiles(doc);
                     string fileList = srcFiles.Count == 0
@@ -151,11 +170,13 @@ namespace NavisworksIfcExporter.UI
                 }
                 else
                 {
-                    summary = $"{results.Count} linha(s)  |  ✓ {ok} Preenchidas  |  ⚠ {empty} Vazias  |  ✗ {missing} Ausentes";
+                    summary = $"{totalChecked} verificação(ões)  |  ✓ {okTotal} Preenchidas ({pctGlobal}%)  |  ⚠ {emptyTotal} Vazias  |  ✗ {missingTotal} Ausentes";
+                    summary += $"  |  {results.Count} linha(s) na tabela";
                 }
 
+                CheckService.LogRuleStats();
                 NavisworksIfcExporter.Core.PluginLogger.Info(
-                    $"Check concluído — {results.Count} resultado(s)  ✓{ok} ⚠{empty} ✗{missing}");
+                    $"Check concluído — ✓{okTotal} ⚠{emptyTotal} ✗{missingTotal}  ({pctGlobal}% correto)");
                 SetStatus(summary);
                 BtnExport.IsEnabled = results.Count > 0;
             }
@@ -219,6 +240,33 @@ namespace NavisworksIfcExporter.UI
             PanelProgress.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
             PrgBar.Value  = value;
             TxtPct.Text   = $"{(int)value}%";
+        }
+
+        private static void Accumulate(
+            Dictionary<string, (int ok, int empty, int missing)> dict,
+            string key, string resultado)
+        {
+            if (string.IsNullOrWhiteSpace(key)) key = "(sem filtro)";
+            dict.TryGetValue(key, out var cur);
+            if      (resultado == CheckService.OK)      dict[key] = (cur.ok + 1, cur.empty,     cur.missing);
+            else if (resultado == CheckService.EMPTY)   dict[key] = (cur.ok,     cur.empty + 1, cur.missing);
+            else                                        dict[key] = (cur.ok,     cur.empty,     cur.missing + 1);
+        }
+
+        private static List<CheckSummaryRow> BuildSummary(
+            Dictionary<string, (int ok, int empty, int missing)> dict)
+        {
+            return dict
+                .OrderByDescending(kv => kv.Value.ok + kv.Value.empty + kv.Value.missing)
+                .Select(kv => new CheckSummaryRow
+                {
+                    Nome    = kv.Key,
+                    Total   = kv.Value.ok + kv.Value.empty + kv.Value.missing,
+                    Ok      = kv.Value.ok,
+                    Vazia   = kv.Value.empty,
+                    Ausente = kv.Value.missing,
+                })
+                .ToList();
         }
     }
 }

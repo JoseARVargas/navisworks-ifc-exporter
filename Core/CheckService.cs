@@ -11,9 +11,17 @@ namespace NavisworksIfcExporter.Core
 {
     public class CheckRule
     {
-        public string Disciplina  { get; set; } = "";
-        public string Categoria   { get; set; } = "";
-        public string Propriedade { get; set; } = "";
+        public string Disciplina       { get; set; } = "";
+        public string Categoria        { get; set; } = "";
+        public string Propriedade      { get; set; } = "";
+        /// <summary>Categoria da propriedade de filtro de aplicabilidade (opcional).</summary>
+        public string CategoriaFiltro  { get; set; } = "";
+        /// <summary>Nome da propriedade de filtro de aplicabilidade (opcional).</summary>
+        public string PropriedadeFiltro { get; set; } = "";
+
+        public bool TemFiltro =>
+            !string.IsNullOrWhiteSpace(CategoriaFiltro) &&
+            !string.IsNullOrWhiteSpace(PropriedadeFiltro);
     }
 
     public class CheckResult
@@ -25,6 +33,24 @@ namespace NavisworksIfcExporter.Core
         public string Propriedade    { get; set; } = "";
         public string Valor          { get; set; } = "";
         public string Resultado      { get; set; } = "";
+    }
+
+    public class CheckSummaryRow
+    {
+        public string Nome    { get; set; } = "";
+        public int    Total   { get; set; }
+        public int    Ok      { get; set; }
+        public int    Vazia   { get; set; }
+        public int    Ausente { get; set; }
+        public string PctOk   => Total > 0 ? $"{Ok * 100 / Total}%" : "—";
+        public string BarOk
+        {
+            get
+            {
+                int pct = Total > 0 ? Ok * 100 / Total : 0;
+                return new string('█', pct / 5) + new string('░', 20 - pct / 5) + $"  {pct}%";
+            }
+        }
     }
 
     public static class CheckService
@@ -59,6 +85,9 @@ namespace NavisworksIfcExporter.Core
             int iDisc  = FindHeader(headers, "disciplina");
             int iCat   = FindHeader(headers, "categoria");
             int iProp  = FindHeader(headers, "propriedade", "property");
+            // colunas opcionais de filtro de aplicabilidade
+            int iCatF  = FindHeader(headers, "categoriafiltro",   "categoria filtro",   "filter category",  "filtercategory");
+            int iPropF = FindHeader(headers, "propriedadefiltro", "propriedade filtro", "filter property",  "filterproperty");
 
             if (iDisc < 0 || iCat < 0 || iProp < 0)
                 throw new InvalidDataException(
@@ -70,9 +99,11 @@ namespace NavisworksIfcExporter.Core
                 var cols = SplitLine(lines[i], sep);
                 if (cols.Length <= Math.Max(iDisc, Math.Max(iCat, iProp))) continue;
                 rules.Add(new CheckRule {
-                    Disciplina  = cols[iDisc].Trim(),
-                    Categoria   = cols[iCat].Trim(),
-                    Propriedade = cols[iProp].Trim(),
+                    Disciplina        = cols[iDisc].Trim(),
+                    Categoria         = cols[iCat].Trim(),
+                    Propriedade       = cols[iProp].Trim(),
+                    CategoriaFiltro   = iCatF  >= 0 && iCatF  < cols.Length ? cols[iCatF].Trim()  : "",
+                    PropriedadeFiltro = iPropF >= 0 && iPropF < cols.Length ? cols[iPropF].Trim() : "",
                 });
             }
             return rules;
@@ -96,6 +127,8 @@ namespace NavisworksIfcExporter.Core
             int iDisc  = FindColumn(table, "disciplina");
             int iCat   = FindColumn(table, "categoria");
             int iProp  = FindColumn(table, "propriedade", "property");
+            int iCatF  = FindColumn(table, "categoriafiltro",   "categoria filtro",   "filter category",  "filtercategory");
+            int iPropF = FindColumn(table, "propriedadefiltro", "propriedade filtro", "filter property",  "filterproperty");
 
             if (iDisc < 0 || iCat < 0 || iProp < 0)
                 throw new InvalidDataException(
@@ -103,11 +136,17 @@ namespace NavisworksIfcExporter.Core
 
             foreach (DataRow row in table.Rows)
             {
-                string disc = row[iDisc]?.ToString()?.Trim() ?? "";
-                string cat  = row[iCat]?.ToString()?.Trim()  ?? "";
-                string prop = row[iProp]?.ToString()?.Trim() ?? "";
+                string disc  = row[iDisc]?.ToString()?.Trim() ?? "";
+                string cat   = row[iCat]?.ToString()?.Trim()  ?? "";
+                string prop  = row[iProp]?.ToString()?.Trim() ?? "";
                 if (string.IsNullOrWhiteSpace(cat) && string.IsNullOrWhiteSpace(prop)) continue;
-                rules.Add(new CheckRule { Disciplina = disc, Categoria = cat, Propriedade = prop });
+                rules.Add(new CheckRule {
+                    Disciplina        = disc,
+                    Categoria         = cat,
+                    Propriedade       = prop,
+                    CategoriaFiltro   = iCatF  >= 0 ? row[iCatF]?.ToString()?.Trim()  ?? "" : "",
+                    PropriedadeFiltro = iPropF >= 0 ? row[iPropF]?.ToString()?.Trim() ?? "" : "",
+                });
             }
             return rules;
         }
@@ -162,17 +201,47 @@ namespace NavisworksIfcExporter.Core
             }
         }
 
+        // Contador de itens verificados por regra — para log de performance
+        private static readonly Dictionary<string, (int filtered, int checked_)> _ruleStats
+            = new Dictionary<string, (int, int)>();
+
+        public static void ResetRuleStats() => _ruleStats.Clear();
+
+        public static void LogRuleStats()
+        {
+            if (_ruleStats.Count == 0) return;
+            PluginLogger.Info("  Estatísticas por regra (filtered=passou filtro disciplina, checked=propriedade verificada):");
+            foreach (var kv in _ruleStats)
+                PluginLogger.Info($"    [{kv.Key}] filtered={kv.Value.filtered}  checked={kv.Value.checked_}");
+        }
+
         // Processes a single item against all rules, appending to results list
         public static void ProcessItem(ModelItem item, string sourceFile,
             IList<CheckRule> rules, List<CheckResult> results, bool onlyFailures)
         {
+            // Uma única leitura COM por item — todas as regras usam o cache
+            var cache = BuildPropCache(item);
+
             foreach (var rule in rules)
             {
+                // Filtro 1 — disciplina (substring do source file)
                 if (!string.IsNullOrWhiteSpace(rule.Disciplina) &&
                     sourceFile.IndexOf(rule.Disciplina, StringComparison.OrdinalIgnoreCase) < 0)
                     continue;
 
-                var (resultado, valor) = CheckProperty(item, rule.Categoria, rule.Propriedade);
+                // Filtro 2 — aplicabilidade por propriedade (CategoriaFiltro + PropriedadeFiltro)
+                if (rule.TemFiltro && !ItemMatchesFilterFromCache(cache, rule.CategoriaFiltro, rule.PropriedadeFiltro))
+                    continue;
+
+                // Conta itens que passaram os filtros
+                string key = $"{rule.Disciplina}/{rule.Categoria}/{rule.Propriedade}";
+                if (!_ruleStats.TryGetValue(key, out var s)) s = (0, 0);
+                _ruleStats[key] = (s.filtered + 1, s.checked_);
+
+                var (resultado, valor) = CheckPropertyFromCache(cache, rule.Categoria, rule.Propriedade);
+
+                s = _ruleStats[key];
+                _ruleStats[key] = (s.filtered, s.checked_ + 1);
 
                 if (onlyFailures && resultado == OK) continue;
 
@@ -188,6 +257,41 @@ namespace NavisworksIfcExporter.Core
                     Resultado   = resultado,
                 });
             }
+        }
+
+        // Constrói cache catName → propName → valor a partir de uma única leitura COM
+        internal static Dictionary<string, Dictionary<string, string>> BuildPropCache(ModelItem item)
+        {
+            var cache = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var cat in item.PropertyCategories)
+            {
+                if (!cache.TryGetValue(cat.DisplayName, out var props))
+                    cache[cat.DisplayName] = props = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var prop in cat.Properties)
+                    if (!props.ContainsKey(prop.DisplayName))
+                        props[prop.DisplayName] = prop.Value?.ToDisplayString() ?? "";
+            }
+            return cache;
+        }
+
+        private static bool ItemMatchesFilterFromCache(
+            Dictionary<string, Dictionary<string, string>> cache,
+            string filterCat, string filterProp)
+        {
+            if (!cache.TryGetValue(filterCat, out var props)) return false;
+            if (!props.TryGetValue(filterProp, out var val)) return false;
+            return !string.IsNullOrWhiteSpace(val);
+        }
+
+        private static (string resultado, string valor) CheckPropertyFromCache(
+            Dictionary<string, Dictionary<string, string>> cache,
+            string category, string propName)
+        {
+            if (!cache.TryGetValue(category, out var props))
+                return (MISSING, "");
+            if (!props.TryGetValue(propName, out var val))
+                return (MISSING, "");
+            return (string.IsNullOrWhiteSpace(val) ? EMPTY : OK, val);
         }
 
         // -----------------------------------------------------------------------
@@ -217,24 +321,6 @@ namespace NavisworksIfcExporter.Core
         // -----------------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------------
-
-        private static (string resultado, string valor) CheckProperty(
-            ModelItem item, string category, string propName)
-        {
-            foreach (var cat in item.PropertyCategories)
-            {
-                if (!cat.DisplayName.Equals(category, StringComparison.OrdinalIgnoreCase)) continue;
-
-                foreach (var prop in cat.Properties)
-                {
-                    if (!prop.DisplayName.Equals(propName, StringComparison.OrdinalIgnoreCase)) continue;
-                    string val = prop.Value?.ToDisplayString() ?? "";
-                    return (string.IsNullOrWhiteSpace(val) ? EMPTY : OK, val);
-                }
-                return (MISSING, "");
-            }
-            return (MISSING, "");
-        }
 
         private static IEnumerable<ModelItem> WalkGeometry(IEnumerable<ModelItem> items)
         {

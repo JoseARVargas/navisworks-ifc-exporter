@@ -58,13 +58,29 @@
             <DataGrid x:Name="GridRules"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False" CanUserDeleteRows="False"
-                      IsReadOnly="True" MaxHeight="120"
+                      IsReadOnly="True" MaxHeight="130"
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                       RowHeight="22" FontSize="11" BorderThickness="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Disciplina (filtro Source File)" Binding="{Binding Disciplina}" Width="*"/>
-                    <DataGridTextColumn Header="Categoria"   Binding="{Binding Categoria}"   Width="*"/>
-                    <DataGridTextColumn Header="Propriedade" Binding="{Binding Propriedade}" Width="*"/>
+                    <DataGridTextColumn Header="Disciplina"         Binding="{Binding Disciplina}"        Width="80"/>
+                    <DataGridTextColumn Header="Categoria"          Binding="{Binding Categoria}"          Width="*"/>
+                    <DataGridTextColumn Header="Propriedade"        Binding="{Binding Propriedade}"        Width="*"/>
+                    <DataGridTextColumn Header="Cat. Filtro"        Binding="{Binding CategoriaFiltro}"   Width="110">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                                <Setter Property="FontStyle"  Value="Italic"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Prop. Filtro"       Binding="{Binding PropriedadeFiltro}" Width="110">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#1565C0"/>
+                                <Setter Property="FontStyle"  Value="Italic"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                 </DataGrid.Columns>
             </DataGrid>
         </GroupBox>
@@ -94,29 +110,104 @@
                        FontWeight="SemiBold" FontSize="11"/>
         </Grid>
 
-        <!-- ===== Resultado ===== -->
-        <GroupBox Grid.Row="4" Header="Resultado" Padding="0,4" Margin="0,0,0,4">
-            <DataGrid x:Name="GridResults"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False" CanUserDeleteRows="False"
-                      IsReadOnly="True"
-                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                      RowHeight="22" FontSize="11" BorderThickness="0"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      EnableRowVirtualization="True"
-                      RowStyle="{StaticResource ResultRow}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Disciplina"  Binding="{Binding Disciplina}"  Width="80"/>
-                    <DataGridTextColumn Header="Source File" Binding="{Binding SourceFile}"  Width="150"/>
-                    <DataGridTextColumn Header="Identificador" Binding="{Binding Guid}"      Width="240"/>
-                    <DataGridTextColumn Header="Categoria"   Binding="{Binding Categoria}"   Width="120"/>
-                    <DataGridTextColumn Header="Propriedade" Binding="{Binding Propriedade}" Width="130"/>
-                    <DataGridTextColumn Header="Valor atual" Binding="{Binding Valor}"       Width="120"/>
-                    <DataGridTextColumn Header="Resultado"   Binding="{Binding Resultado}"   Width="110"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </GroupBox>
+        <!-- ===== Resultado + Resumo ===== -->
+        <TabControl Grid.Row="4" Margin="0,0,0,4">
+
+            <!-- Tab Detalhado -->
+            <TabItem Header="Detalhado">
+                <DataGrid x:Name="GridResults"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          RowHeight="22" FontSize="11" BorderThickness="0"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          EnableRowVirtualization="True"
+                          RowStyle="{StaticResource ResultRow}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Disciplina"    Binding="{Binding Disciplina}"  Width="80"/>
+                        <DataGridTextColumn Header="Source File"   Binding="{Binding SourceFile}"  Width="150"/>
+                        <DataGridTextColumn Header="Identificador" Binding="{Binding Guid}"        Width="240"/>
+                        <DataGridTextColumn Header="Categoria"     Binding="{Binding Categoria}"   Width="120"/>
+                        <DataGridTextColumn Header="Propriedade"   Binding="{Binding Propriedade}" Width="130"/>
+                        <DataGridTextColumn Header="Valor atual"   Binding="{Binding Valor}"       Width="120"/>
+                        <DataGridTextColumn Header="Resultado"     Binding="{Binding Resultado}"   Width="110"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- Tab Resumo -->
+            <TabItem Header="Resumo">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Por Disciplina -->
+                    <DockPanel Grid.Column="0">
+                        <TextBlock DockPanel.Dock="Top" Text="Por Disciplina"
+                                   FontWeight="SemiBold" FontSize="12"
+                                   Margin="4,4,0,4" Foreground="#334"/>
+                        <DataGrid x:Name="GridSummaryDisc"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  RowHeight="22" FontSize="11" BorderThickness="1"
+                                  BorderBrush="#DDD">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Disciplina"    Binding="{Binding Nome}"    Width="*"   MinWidth="60"/>
+                                <DataGridTextColumn Header="Total"         Binding="{Binding Total}"   Width="50"  MinWidth="40"/>
+                                <DataGridTextColumn Header="✓ OK"          Binding="{Binding Ok}"      Width="45"  MinWidth="35"/>
+                                <DataGridTextColumn Header="⚠ Vazia"      Binding="{Binding Vazia}"   Width="50"  MinWidth="40"/>
+                                <DataGridTextColumn Header="✗ Ausente"    Binding="{Binding Ausente}"  Width="60"  MinWidth="45"/>
+                                <DataGridTextColumn Header="% Correto"    Binding="{Binding BarOk}"    Width="*"   MinWidth="100">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontFamily" Value="Courier New"/>
+                                            <Setter Property="FontSize"   Value="10"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
+                    <!-- Por Source File -->
+                    <DockPanel Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Por Source File"
+                                   FontWeight="SemiBold" FontSize="12"
+                                   Margin="4,4,0,4" Foreground="#334"/>
+                        <DataGrid x:Name="GridSummarySrc"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False" CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  RowHeight="22" FontSize="11" BorderThickness="1"
+                                  BorderBrush="#DDD">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Source File"  Binding="{Binding Nome}"    Width="*"   MinWidth="80"/>
+                                <DataGridTextColumn Header="Total"        Binding="{Binding Total}"   Width="50"  MinWidth="40"/>
+                                <DataGridTextColumn Header="✓ OK"         Binding="{Binding Ok}"      Width="45"  MinWidth="35"/>
+                                <DataGridTextColumn Header="⚠ Vazia"     Binding="{Binding Vazia}"   Width="50"  MinWidth="40"/>
+                                <DataGridTextColumn Header="✗ Ausente"   Binding="{Binding Ausente}"  Width="60"  MinWidth="45"/>
+                                <DataGridTextColumn Header="% Correto"   Binding="{Binding BarOk}"    Width="*"   MinWidth="100">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontFamily" Value="Courier New"/>
+                                            <Setter Property="FontSize"   Value="10"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
         <!-- ===== Status ===== -->
         <Border Grid.Row="5" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1"

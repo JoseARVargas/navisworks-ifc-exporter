@@ -122,4 +122,17 @@ namespace NavisworksIfcExporter
             return 0;
         }
     }
+
+    [Plugin("CheckIDS", "PHD",
+        DisplayName = "Verificar IDS",
+        ToolTip     = "Valida o modelo contra um arquivo IDS (Information Delivery Specification) buildingSMART")]
+    [AddInPlugin(AddInLocation.None)]
+    public class CheckIdsPlugin : AddInPlugin
+    {
+        public override int Execute(params string[] parameters)
+        {
+            new UI.IdsWindow().ShowDialog();
+            return 0;
+        }
+    }
 }

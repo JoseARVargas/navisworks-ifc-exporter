@@ -178,8 +178,22 @@ namespace NavisworksIfcExporter
                         Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("CheckProperties.PHD")),
                 };
 
+                var btnCheckIds = new RibbonButton
+                {
+                    Id             = "CheckIDS.PHD",
+                    Text           = "Verificar\nIDS",
+                    ShowText       = true,
+                    Size           = RibbonItemSize.Large,
+                    Orientation    = Orientation.Vertical,
+                    IsEnabled      = true,
+                    LargeImage     = LoadIcon("verificar_propriedades_32x32.png"),
+                    CommandHandler = new RibbonRelayCommand(() =>
+                        Autodesk.Navisworks.Api.Application.Plugins.ExecuteAddInPlugin("CheckIDS.PHD")),
+                };
+
                 var checkPanelSource = new RibbonPanelSource { Id = "PHD_Check_Panel", Title = "Check" };
                 checkPanelSource.Items.Add(btnCheckProps);
+                checkPanelSource.Items.Add(btnCheckIds);
 
                 var viewPanelSource = new RibbonPanelSource { Id = "PHD_View_Panel", Title = "View" };
                 viewPanelSource.Items.Add(btnHighlight);
