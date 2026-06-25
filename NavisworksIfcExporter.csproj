@@ -44,9 +44,10 @@
   </ItemGroup>
 
   <!-- Copia o DLL para a pasta de plugins após cada build -->
-  <Target Name="DeployToNavisworks" AfterTargets="Build">
+  <!-- Deploy automático só em Debug — Release é para o instalador e não deve copiar com Navisworks aberto -->
+  <Target Name="DeployToNavisworks" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup>
-      <PluginDir>$(APPDATA)\Autodesk\Navisworks 2026\Plugins\NavisworksIfcExporter</PluginDir>
+      <PluginDir>$(APPDATA)\Autodesk\Navisworks Manage 2026\Plugins\NavisworksIfcExporter</PluginDir>
     </PropertyGroup>
     <MakeDir Directories="$(PluginDir)" Condition="!Exists('$(PluginDir)')" />
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="true" />

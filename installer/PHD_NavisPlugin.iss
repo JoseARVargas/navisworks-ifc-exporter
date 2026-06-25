@@ -3,7 +3,7 @@
 
 #define AppName       "PHD Navisworks Plugin"
 #define AppPublisher  "PHD Eng. Digital"
-#define AppVersion    "1.0.0"
+#define AppVersion    "1.0.1"
 #define AppId         "{B7C4D2E1-5F3A-4B8C-9D1E-2A6F7B3C4D5E}"
 #define BuildDir      "..\bin\Release\net48"
 #define NavisYear     "2026"
@@ -19,7 +19,8 @@ AppSupportURL=https://github.com/jaribeirovargas/navisworks-ifc-exporter/issues
 AppUpdatesURL=https://github.com/jaribeirovargas/navisworks-ifc-exporter/releases
 
 ; Instalação por usuário — sem UAC, sem admin
-DefaultDirName={userappdata}\Autodesk\Navisworks {#NavisYear}\Plugins\{#PluginFolder}
+; Navisworks Manage usa a pasta "Navisworks Manage YYYY", não "Navisworks YYYY"
+DefaultDirName={userappdata}\Autodesk\Navisworks Manage {#NavisYear}\Plugins\{#PluginFolder}
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=
@@ -117,13 +118,18 @@ begin
   Result := True;
 end;
 
-// Remove instalação anterior do mesmo plugin (se existir)
+// Remove instalações anteriores do plugin (caminho atual e caminho legado incorreto)
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   OldPath: string;
 begin
   if CurStep = ssInstall then
   begin
+    // Caminho correto atual
+    OldPath := ExpandConstant('{userappdata}\Autodesk\Navisworks Manage 2026\Plugins\{#PluginFolder}');
+    if DirExists(OldPath) then
+      DelTree(OldPath, True, True, True);
+    // Caminho legado incorreto (v1.0.0 instalava aqui por engano)
     OldPath := ExpandConstant('{userappdata}\Autodesk\Navisworks 2026\Plugins\{#PluginFolder}');
     if DirExists(OldPath) then
       DelTree(OldPath, True, True, True);
