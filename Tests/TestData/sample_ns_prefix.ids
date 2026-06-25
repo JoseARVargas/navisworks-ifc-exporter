@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids:ids xmlns:ids="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <ids:info>
+    <ids:title>Minimal IDS</ids:title>
+    <ids:author>PHD</ids:author>
+  </ids:info>
+  <ids:specifications>
+    <ids:specification name="Test Spec" identifier="SPEC-001" ifcVersion="IFC4">
+      <ids:applicability>
+        <ids:entity>
+          <ids:name><ids:simpleValue>IfcColumn</ids:simpleValue></ids:name>
+        </ids:entity>
+      </ids:applicability>
+      <ids:requirements>
+        <ids:property cardinality="required">
+          <ids:propertySet><ids:simpleValue>Pset_ColumnCommon</ids:simpleValue></ids:propertySet>
+          <ids:baseName><ids:simpleValue>LoadBearing</ids:simpleValue></ids:baseName>
+        </ids:property>
+      </ids:requirements>
+    </ids:specification>
+  </ids:specifications>
+</ids:ids>

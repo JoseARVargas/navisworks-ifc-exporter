@@ -9,10 +9,19 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <LangVersion>9.0</LangVersion>
+    <!-- Exclui pasta de testes da compilação do plugin principal -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
     <!-- Detecta automaticamente Navisworks 2025 ou 2026; sobrescreva com -p:NavisworksDir="..." -->
     <NavisworksDir Condition="'$(NavisworksDir)' == '' AND Exists('C:\Program Files\Autodesk\Navisworks Manage 2026')">C:\Program Files\Autodesk\Navisworks Manage 2026</NavisworksDir>
     <NavisworksDir Condition="'$(NavisworksDir)' == '' AND Exists('C:\Program Files\Autodesk\Navisworks Manage 2025')">C:\Program Files\Autodesk\Navisworks Manage 2025</NavisworksDir>
   </PropertyGroup>
+
+  <!-- Permite que o projeto de testes acesse membros internos -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>NavisworksIfcExporter.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resources\exportar_ifc_32x32.png"/>

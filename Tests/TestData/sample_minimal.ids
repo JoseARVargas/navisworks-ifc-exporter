@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids>
+  <info>
+    <title>Minimal IDS</title>
+    <author>PHD</author>
+  </info>
+  <specifications>
+    <specification name="Test Spec" identifier="SPEC-001" ifcVersion="IFC4">
+      <applicability>
+        <entity>
+          <name><simpleValue>IfcColumn</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <property cardinality="required">
+          <propertySet><simpleValue>Pset_ColumnCommon</simpleValue></propertySet>
+          <baseName><simpleValue>LoadBearing</simpleValue></baseName>
+        </property>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

@@ -1,0 +1,4 @@
+Disciplina;Categoria;Propriedade;CategoriaFiltro;PropriedadeFiltro
+EST;Pset_ColumnCommon;LoadBearing;IFC;Entity
+ARQ;Pset_WallCommon;FireRating;;
+;Pset_BeamCommon;IsExternal;Pset_BeamCommon;IsExternal

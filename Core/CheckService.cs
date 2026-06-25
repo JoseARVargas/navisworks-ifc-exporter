@@ -274,7 +274,7 @@ namespace NavisworksIfcExporter.Core
             return cache;
         }
 
-        private static bool ItemMatchesFilterFromCache(
+        internal static bool ItemMatchesFilterFromCache(
             Dictionary<string, Dictionary<string, string>> cache,
             string filterCat, string filterProp)
         {
@@ -283,7 +283,7 @@ namespace NavisworksIfcExporter.Core
             return !string.IsNullOrWhiteSpace(val);
         }
 
-        private static (string resultado, string valor) CheckPropertyFromCache(
+        internal static (string resultado, string valor) CheckPropertyFromCache(
             Dictionary<string, Dictionary<string, string>> cache,
             string category, string propName)
         {

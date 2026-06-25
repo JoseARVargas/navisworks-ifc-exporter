@@ -1,0 +1,5 @@
+Disciplina;Categoria;Propriedade
+EST;Pset_ColumnCommon;LoadBearing
+EST;Pset_BeamCommon;IsExternal
+ARQ;Pset_WallCommon;FireRating
+;Pset_BuildingCommon;GrossAreaPlanned

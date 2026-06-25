@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <LangVersion>9.0</LangVersion>
+    <!-- Mesmo NavisworksDir do projeto principal para resolver referências em build-time -->
+    <NavisworksDir Condition="'$(NavisworksDir)' == '' AND Exists('C:\Program Files\Autodesk\Navisworks Manage 2026')">C:\Program Files\Autodesk\Navisworks Manage 2026</NavisworksDir>
+    <NavisworksDir Condition="'$(NavisworksDir)' == '' AND Exists('C:\Program Files\Autodesk\Navisworks Manage 2025')">C:\Program Files\Autodesk\Navisworks Manage 2025</NavisworksDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NavisworksIfcExporter.csproj" />
+  </ItemGroup>
+
+  <!-- Referências Navisworks — necessárias para compilar (resolve via ProjectReference) -->
+  <!-- Em runtime, os testes não instanciam nenhum tipo Navisworks (lazy loading do CLR) -->
+  <ItemGroup>
+    <Reference Include="Autodesk.Navisworks.Api">
+      <HintPath>$(NavisworksDir)\Autodesk.Navisworks.Api.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Copia arquivos de fixture para o diretório de saída do test runner -->
+  <ItemGroup>
+    <None Update="TestData\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

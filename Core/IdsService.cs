@@ -98,7 +98,7 @@ namespace NavisworksIfcExporter.Core
 
         // ── applicability ────────────────────────────────────────────────────
 
-        private static bool MatchesApplicability(
+        internal static bool MatchesApplicability(
             Dictionary<string, Dictionary<string, string>> cache,
             string? entity, List<IdsFacet> facets)
         {
@@ -108,7 +108,7 @@ namespace NavisworksIfcExporter.Core
 
         // ── requirements ─────────────────────────────────────────────────────
 
-        private static (bool pass, string reason) CheckRequirements(
+        internal static (bool pass, string reason) CheckRequirements(
             Dictionary<string, Dictionary<string, string>> cache,
             string? entity, List<IdsFacet> facets)
         {
@@ -129,7 +129,7 @@ namespace NavisworksIfcExporter.Core
 
         // ── avaliação de facet ───────────────────────────────────────────────
 
-        private static (bool pass, string reason) EvalFacet(
+        internal static (bool pass, string reason) EvalFacet(
             Dictionary<string, Dictionary<string, string>> cache,
             string? entity, IdsFacet facet)
             => facet switch
@@ -254,7 +254,7 @@ namespace NavisworksIfcExporter.Core
             }
         }
 
-        private static string? GetEntityTypeFromCache(Dictionary<string, Dictionary<string, string>> cache)
+        internal static string? GetEntityTypeFromCache(Dictionary<string, Dictionary<string, string>> cache)
         {
             foreach (var catKv in cache)
                 foreach (var propKv in catKv.Value)

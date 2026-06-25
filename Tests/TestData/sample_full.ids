@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids>
+  <info>
+    <title>Full IDS</title>
+    <description>Cobre todos os tipos de facet</description>
+    <author>PHD</author>
+    <date>2026-06-25</date>
+    <milestone>LOD 350</milestone>
+  </info>
+  <specifications>
+    <specification name="Column Spec" identifier="COL-001" ifcVersion="IFC4"
+                   description="Colunas estruturais portantes">
+      <applicability>
+        <entity>
+          <name><simpleValue>IfcColumn</simpleValue></name>
+        </entity>
+      </applicability>
+      <requirements>
+        <!-- property com restrição enumeration -->
+        <property cardinality="required">
+          <propertySet><simpleValue>Pset_ColumnCommon</simpleValue></propertySet>
+          <baseName><simpleValue>LoadBearing</simpleValue></baseName>
+          <value>
+            <restriction base="xs:string">
+              <enumeration value="YES"/>
+              <enumeration value="TRUE"/>
+            </restriction>
+          </value>
+        </property>
+        <!-- attribute obrigatório -->
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+        </attribute>
+        <!-- classification opcional — não falha se ausente -->
+        <classification cardinality="optional">
+          <system><simpleValue>Uniclass</simpleValue></system>
+        </classification>
+        <!-- property proibida -->
+        <property cardinality="prohibited">
+          <propertySet><simpleValue>Pset_Proibido</simpleValue></propertySet>
+          <baseName><simpleValue>Deletar</simpleValue></baseName>
+        </property>
+      </requirements>
+    </specification>
+    <specification name="Beam Pattern" identifier="BM-001" ifcVersion="IFC4">
+      <applicability>
+        <entity>
+          <name>
+            <restriction base="xs:string">
+              <pattern value="^IfcBeam.*"/>
+            </restriction>
+          </name>
+        </entity>
+      </applicability>
+      <requirements>
+        <property cardinality="required">
+          <propertySet><simpleValue>Pset_BeamCommon</simpleValue></propertySet>
+          <baseName><simpleValue>IsExternal</simpleValue></baseName>
+        </property>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

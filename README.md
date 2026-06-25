@@ -231,6 +231,13 @@ O build copia automaticamente o DLL para:
 %AppData%\Autodesk\Navisworks 2026\Plugins\NavisworksIfcExporter\
 ```
 
+### Rodar os testes
+```powershell
+dotnet test Tests\
+```
+
+Não requer Navisworks em execução — os testes cobrem apenas lógica pura (sem instanciar tipos da API). Esperado: **88 testes, 0 falhas**.
+
 ### Gerar o instalador
 Requer [Inno Setup 6+](https://jrsoftware.org/isdl.php) instalado.
 
@@ -242,43 +249,87 @@ cd installer
 
 ---
 
+## Testes automatizados
+
+O projeto `Tests/NavisworksIfcExporter.Tests.csproj` (xUnit 2.6, .NET 4.8) cobre a camada de lógica pura do plugin — sem necessidade de Navisworks em execução.
+
+### O que é testado
+
+| Arquivo de teste | O que cobre | Testes |
+|---|---|---|
+| `IdsValueTests.cs` | `IdsValue.Matches` (simpleValue, enumeração, regex, null) | 22 |
+| `IdsParserTests.cs` | `IdsParser.ParseFile` — parsing com/sem prefixo `ids:`, todos os facets, erros de XML | 17 |
+| `IdsServiceEvalTests.cs` | Motor de validação IDS: `EvalFacet`, `MatchesApplicability`, `CheckRequirements`, `GetEntityTypeFromCache` | 27 |
+| `CheckServiceTests.cs` | `CheckPropertyFromCache`, `ItemMatchesFilterFromCache`, `LoadRules` (CSV `;` e `,`, colunas de filtro), `CheckSummaryRow` | 22 |
+
+### O que não é testado automaticamente
+
+A API do Navisworks exige um processo host rodando — os seguintes pontos precisam de validação manual em campo:
+
+- `GetGeometryItems` / `BuildPropCache` — leitura COM de `ModelItem`
+- Janelas WPF — fluxo completo de UI
+- IDS contra modelo real — mapeamento do tipo de entidade IFC varia por origem do arquivo (NWC, IFC nativo)
+
+### Fixtures de teste
+
+Os arquivos em `Tests/TestData/` cobrem os cenários principais:
+
+| Arquivo | Propósito |
+|---|---|
+| `sample_minimal.ids` | IDS mínimo sem namespace |
+| `sample_ns_prefix.ids` | Mesmo conteúdo com prefixo `ids:` — valida parsing namespace-agnóstico |
+| `sample_full.ids` | Todos os facets: entity, property (enumeração), attribute, classification, prohibited |
+| `rules_basic.csv` | CSV básico com separador `;` |
+| `rules_comma.csv` | CSV com separador `,` |
+| `rules_with_filter.csv` | CSV com colunas `CategoriaFiltro` e `PropriedadeFiltro` |
+
+---
+
 ## Estrutura do projeto
 
 ```
-NavisworksIfcExporter/
-├── Plugin.cs                    # Registro de todos os AddInPlugins
-├── RibbonLoader.cs              # Construção da aba PHD no ribbon
-├── NavisworksIfcExporter.csproj
+NavisworksIfcExporter.sln
 │
-├── Core/
-│   ├── ExportService.cs         # Orquestra exportação IFC
-│   ├── GeometryExtractor.cs     # Extrai geometria via COM (ToInwOpSelection)
-│   ├── PropertyExtractor.cs     # Lê propriedades dos elementos
-│   ├── IfcWriter.cs             # Gera arquivo IFC via xBIM
-│   ├── IfcTypeMapper.cs         # Mapeia categorias → tipos IFC
-│   ├── CheckService.cs          # Motor de verificação de propriedades (CSV)
-│   ├── IdsModels.cs             # Modelos de dados IDS
-│   ├── IdsParser.cs             # Parser XML do arquivo .ids
-│   ├── IdsService.cs            # Motor de validação IDS
-│   ├── QtoService.cs            # Lógica de QTO Auto Attach
-│   └── PluginLogger.cs          # Logger + PerfScope para métricas
+├── NavisworksIfcExporter.csproj     # Plugin principal
+│   ├── Plugin.cs                    # Registro de todos os AddInPlugins
+│   ├── RibbonLoader.cs              # Construção da aba PHD no ribbon
+│   │
+│   ├── Core/
+│   │   ├── ExportService.cs         # Orquestra exportação IFC
+│   │   ├── GeometryExtractor.cs     # Extrai geometria via COM (ToInwOpSelection)
+│   │   ├── PropertyExtractor.cs     # Lê propriedades dos elementos
+│   │   ├── IfcWriter.cs             # Gera arquivo IFC via xBIM
+│   │   ├── IfcTypeMapper.cs         # Mapeia categorias → tipos IFC
+│   │   ├── CheckService.cs          # Motor de verificação de propriedades (CSV)
+│   │   ├── IdsModels.cs             # Modelos de dados IDS
+│   │   ├── IdsParser.cs             # Parser XML do arquivo .ids
+│   │   ├── IdsService.cs            # Motor de validação IDS
+│   │   ├── QtoService.cs            # Lógica de QTO Auto Attach
+│   │   └── PluginLogger.cs          # Logger + PerfScope para métricas
+│   │
+│   ├── Models/
+│   │   └── ElementData.cs           # DTO de elemento para exportação IFC
+│   │
+│   ├── UI/
+│   │   ├── ExportWindow.xaml(.cs)
+│   │   ├── CheckWindow.xaml(.cs)
+│   │   ├── IdsWindow.xaml(.cs)
+│   │   ├── QtoWindow.xaml(.cs)
+│   │   ├── HighlightSelectionWindow.xaml(.cs)
+│   │   └── ClashResultsWindow.xaml(.cs)
+│   │
+│   ├── Resources/                   # Ícones PNG 32×32
+│   └── installer/
+│       ├── PHD_NavisPlugin.iss      # Script Inno Setup
+│       ├── build_installer.ps1
+│       └── generate_assets.ps1
 │
-├── Models/
-│   └── ElementData.cs           # DTO de elemento para exportação IFC
-│
-├── UI/
-│   ├── ExportWindow.xaml(.cs)          # Exportação IFC
-│   ├── CheckWindow.xaml(.cs)           # Verificação de propriedades
-│   ├── IdsWindow.xaml(.cs)             # Verificação IDS
-│   ├── QtoWindow.xaml(.cs)             # QTO Auto Attach
-│   ├── HighlightSelectionWindow.xaml(.cs)  # Realçar seleção
-│   └── ClashResultsWindow.xaml(.cs)    # Export clash CSV
-│
-├── Resources/                   # Ícones PNG 32×32
-└── installer/
-    ├── PHD_NavisPlugin.iss      # Script Inno Setup
-    ├── build_installer.ps1      # Orquestra build + empacotamento
-    └── generate_assets.ps1      # Gera banner e ícone do wizard
+└── Tests/NavisworksIfcExporter.Tests.csproj   # Testes unitários
+    ├── IdsValueTests.cs
+    ├── IdsParserTests.cs
+    ├── IdsServiceEvalTests.cs
+    ├── CheckServiceTests.cs
+    └── TestData/                    # Fixtures .ids e .csv
 ```
 
 ---
